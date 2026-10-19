@@ -8,6 +8,8 @@ result it "computes" live is written here, in advance, from that snapshot.
 
 Writes:
     public/demo/harbour_market_catalogue.csv   the retailer's export, as received (with gaps and 3 anomalies)
+    public/demo/catalogue_harbour_market.csv   the same export as a French retailer sends it (French headers,
+                                               semicolons, decimal commas)
     src/data/catalogue.json                     the same rows plus the engine's results
 """
 import csv, io, json
@@ -54,25 +56,25 @@ W = lambda struct, fg=None, sub=None, origin=None, cat=None: {"struct": struct, 
 # key: route, confidence, WWF classification (None when excluded), PT class, protein source, protein used, split method, plant share of protein, matched food
 ENGINE = {
     "beef_mince": ("reference", 1, W("whole", "FG1", "red_meat", "animal"), "animal_core", "declared", None, "one_side", 0, None),
-    "chicken": ("segment", 1, W("whole", "FG1", "poultry", "animal"), "animal_core", "declared", None, "one_side", 0, None),
+    "chicken": ("reference", 1, W("whole", "FG1", "poultry", "animal"), "animal_core", "declared", None, "one_side", 0, None),
     "ham": ("reference", 1, W("whole", "FG1", "red_meat", "animal"), "animal_core", "reference", 21.0, "one_side", 0, None),
     "tuna": ("model", 0.97, W("whole", "FG1", "fish_shellfish", "animal"), "animal_core", "declared", None, "one_side", 0, None),
     "eggs": ("reference", 1, W("whole", "FG1", "eggs", "animal"), "animal_core", "reference", 12.7, "one_side", 0, None),
-    "camembert": ("segment", 1, W("whole", "FG2", "dairy", "animal"), "animal_core", "declared", None, "one_side", 0, None),
-    "yogurt": ("segment", 1, W("whole", "FG2", "dairy", "animal"), "animal_core", "declared", None, "one_side", 0, None),
+    "camembert": ("model", 0.97, W("whole", "FG2", "dairy", "animal"), "animal_core", "declared", None, "one_side", 0, None),
+    "yogurt": ("reference", 1, W("whole", "FG2", "dairy", "animal"), "animal_core", "declared", None, "one_side", 0, None),
     "milk": ("reference", 1, W("whole", "FG2", "dairy", "animal"), "animal_core", "declared", None, "one_side", 0, None),
     "butter": ("reference", 1, W("whole", "FG3", "animal_fat", "animal"), "animal_core", "declared", None, "one_side", 0, None),
-    "oil": ("segment", 1, W("whole", "FG3", "plant_fat", "plant"), "plant_non_core", "declared", None, "zero", 1, None),
+    "oil": ("reference", 1, W("whole", "FG3", "plant_fat", "plant"), "plant_non_core", "declared", None, "zero", 1, None),
     "lentils": ("model", 0.96, W("whole", "FG1", "pulses", "plant"), "plant_core", "off", 8.7, "one_side", 1, None),
     "plant_mince": ("model", 0.98, W("whole", "FG1", "alternative_products", "plant"), "plant_core", "declared", None, "one_side", 1, None),
     "tofu": ("reference", 1, W("whole", "FG1", "tofu_tempeh_seitan", "plant"), "plant_core", "reference", 19.0, "one_side", 1, None),
     "almonds": ("model", 0.97, W("whole", "FG1", "nuts", "plant"), "plant_core", "off", 26.0, "one_side", 1, None),
     "soy_drink": ("reference", 1, W("whole", "FG2", "dairy_alternatives", "plant"), "plant_core", "declared", None, "one_side", 1, None),
-    "oat_drink": ("segment", 1, W("whole", "FG2", "dairy_alternatives", "plant"), "plant_core", "declared", None, "one_side", 1, None),
+    "oat_drink": ("model", 0.95, W("whole", "FG2", "dairy_alternatives", "plant"), "plant_core", "declared", None, "one_side", 1, None),
     "peas": ("model", 0.93, W("whole", "FG4", None, "plant"), "plant_non_core", "ciqual", 5.0, "one_side", 1, "Petits pois, appertisés, égouttés"),
     "compote": ("model", 0.91, W("whole", "FG4", None, "plant"), "plant_non_core", "median", 0.4, "one_side", 1, "Fruit desserts"),
     "spaghetti": ("reference", 1, W("whole", "FG5", "refined_grain", "plant"), "plant_non_core", "off", 13.0, "one_side", 1, None),
-    "bread": ("segment", 1, W("whole", "FG5", "refined_grain", "plant"), "plant_non_core", "declared", None, "one_side", 1, None),
+    "bread": ("model", 0.94, W("whole", "FG5", "refined_grain", "plant"), "plant_non_core", "declared", None, "one_side", 1, None),
     "oats": ("model", 0.95, W("whole", "FG5", "whole_grain", "plant"), "plant_non_core", "declared", None, "one_side", 1, None),
     "mash": ("model", 0.89, W("whole", "FG6", None, "plant"), "plant_non_core", "ciqual", 8.3, "one_side", 1, "Purée de pomme de terre, flocons déshydratés"),
     "pringles": ("model", 0.93, W("whole", "FG7", None, "animal"), "composite", "off", 6.0, "nevo", 0.92, "Chips, gearomatiseerd"),
@@ -142,16 +144,48 @@ for p in products:
         bad = abs(calc - kcal) > max(15, 0.15 * kcal)
         assert bad == (p["key"] in WRONG_PROTEIN), (p["key"], kcal, calc)
 
+# the French file: the same rows, as a French retailer exports them
+COLS_FR = {"ean": "code_ean", "till_label": "libelle_caisse", "product_name": "nom_produit", "brand": "marque", "department": "rayon",
+           "segment": "segment", "net_weight_kg": "poids_net_kg", "ingredients": "ingredients", "energy_kcal_100g": "energie_kcal_100g",
+           "fat_g_100g": "lipides_g_100g", "carbs_g_100g": "glucides_g_100g", "protein_g_100g": "proteines_g_100g",
+           "units_sold_12m": "unites_vendues_12m"}
+DEPT_FR = {"Butchery": "Boucherie", "Poultry": "Volaille", "Deli": "Charcuterie", "Grocery": "Épicerie", "Dairy": "Crèmerie",
+           "Cheese": "Fromages", "Plant-based": "Végétal", "Bakery": "Boulangerie", "Breakfast": "Petit-déjeuner",
+           "Snacks": "Biscuits et snacks", "Ready meals": "Plats préparés", "Frozen": "Surgelés", "Drinks": "Boissons",
+           "Beer & wine": "Bières et vins", "Household": "Droguerie"}
+SEG_FR = {"Minced beef": "Viande hachée", "Chicken": "Poulet", "Cooked ham": "Jambon cuit", "Canned fish": "Poisson en conserve",
+          "Eggs": "Œufs", "Soft cheese": "Fromages à pâte molle", "Yoghurts": "Yaourts", "Milk": "Lait", "Butter": "Beurre",
+          "Oils": "Huiles", "Canned pulses": "Légumineuses cuisinées", "Meat alternatives": "Alternatives à la viande", "Tofu": "Tofu",
+          "Nuts and dried fruit": "Fruits secs", "Plant drinks": "Boissons végétales", "Canned vegetables": "Légumes en conserve",
+          "Fruit desserts": "Compotes", "Pasta": "Pâtes", "Sandwich bread": "Pain de mie", "Cereals": "Céréales",
+          "Potato flakes": "Purées en flocons", "Crisps": "Chips", "Spreads": "Pâtes à tartiner", "Pasta dishes": "Plats de pâtes",
+          "Pizzas": "Pizzas", "Soft drinks": "Sodas", "Beer": "Bières", "Paper": "Papier"}
+NUMERIC = {"net_weight_kg", "energy_kcal_100g", "fat_g_100g", "carbs_g_100g", "protein_g_100g"}
+
+def french(raw: dict) -> dict:
+    out = {}
+    for k, v in raw.items():
+        if k == "department": v = DEPT_FR[v]
+        elif k == "segment": v = SEG_FR[v]
+        elif k in NUMERIC: v = v.replace(".", ",")
+        out[COLS_FR[k]] = v
+    return out
+
 cols = list(raws[0].keys())
-buf = io.StringIO()
-w = csv.DictWriter(buf, fieldnames=cols, lineterminator="\n")
-w.writeheader(); w.writerows(raws)
-out_csv = ROOT / "public" / "demo" / "harbour_market_catalogue.csv"
-out_csv.parent.mkdir(parents=True, exist_ok=True)
-out_csv.write_text(buf.getvalue(), encoding="utf-8")
+demo = ROOT / "public" / "demo"
+demo.mkdir(parents=True, exist_ok=True)
+for name, rows, fields, delim in (("harbour_market_catalogue.csv", raws, cols, ","),
+                                  ("catalogue_harbour_market.csv", [french(r) for r in raws], [COLS_FR[c] for c in cols], ";")):
+    buf = io.StringIO()
+    w = csv.DictWriter(buf, fieldnames=fields, delimiter=delim, lineterminator="\n")
+    w.writeheader(); w.writerows(rows)
+    # with a byte order mark, Excel opens the accents right
+    (demo / name).write_text(buf.getvalue(), encoding="utf-8-sig")
+out_csv = demo / "harbour_market_catalogue.csv"
 out_json = ROOT / "src" / "data" / "catalogue.json"
 out_json.parent.mkdir(parents=True, exist_ok=True)
-out_json.write_text(json.dumps({"columns": cols, "products": products, "anomalies": anomalies}, ensure_ascii=False, indent=1))
+out_json.write_text(json.dumps({"columns": cols, "fr": {"columns": [COLS_FR[c] for c in cols], "segments": SEG_FR, "departments": DEPT_FR},
+                                "products": products, "anomalies": anomalies}, ensure_ascii=False, indent=1))
 
 # a first look at the ratios, to check the story holds
 tot = pl = 0
@@ -161,4 +195,4 @@ for p in products:
     kg = int(p["raw"]["units_sold_12m"]) * r["weightKg"]
     t = kg * r["prot"] / 100; tot += t; pl += t * r["plant"]
 print(f"  {len(products)} rows, {len(anomalies)} anomalies · protein {tot/1000:.1f} t · PT plant share {pl/tot:.1%}")
-print(f"  -> {out_csv.relative_to(ROOT)}, {out_json.relative_to(ROOT)}")
+print(f"  -> {out_csv.relative_to(ROOT)}, public/demo/catalogue_harbour_market.csv, {out_json.relative_to(ROOT)}")

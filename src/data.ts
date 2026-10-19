@@ -1,17 +1,26 @@
 // The demo catalogue (scripts/build_dataset.py): 30 real products, a fictitious retailer.
 import raw from "./data/catalogue.json";
-import type { Anomaly, Product, PtClass, RawRow } from "./types";
+import type { Anomaly, Lang, Product, PtClass, RawRow } from "./types";
 
-interface Catalogue { columns: (keyof RawRow)[]; products: (Product & { key: string })[]; anomalies: Anomaly[] }
+interface Catalogue {
+  columns: (keyof RawRow)[];
+  fr: { columns: string[]; segments: Record<string, string>; departments: Record<string, string> };
+  products: (Product & { key: string })[];
+  anomalies: Anomaly[];
+}
 const CAT = raw as unknown as Catalogue;
 
 export const COLUMNS = CAT.columns;
+/** Column names as each demo file spells them: the French file has French headers. */
+export const COLUMN_NAMES: Record<Lang, string[]> = { en: CAT.columns, fr: CAT.fr.columns };
+export const segment = (s: string, lang: Lang) => (lang === "fr" ? CAT.fr.segments[s] ?? s : s);
 export const PRODUCTS = CAT.products;
 export const ANOMALIES = CAT.anomalies;
 export const N = PRODUCTS.length;
 export const IN_PT = PRODUCTS.filter((p) => p.res.inPt);
 export const IN_WWF = PRODUCTS.filter((p) => p.res.inWwf);
-export const FILE_NAME = "harbour_market_catalogue.csv";
+/** One demo file per language: the French one has French headers, semicolons and decimal commas. */
+export const DEMO_FILES: Record<Lang, string> = { en: "harbour_market_catalogue.csv", fr: "catalogue_harbour_market.csv" };
 export const BOOKING_URL = "https://calendar.google.com/appointments/schedules/AcZssZ3Ft80cRX9S775isS1JromPC4cnU7qQvtdJC6jh7ePlIEe8xlKqjuxUsqtR-qw30JNnPhbFGbyO";
 export const DOWNLOADS = {
   workbook: "downloads/HarbourMarket_Protein_Ratio_DEMO.xlsx",
@@ -21,8 +30,14 @@ export const DOWNLOADS = {
 };
 
 // ------------------------------------------------------------ the file the presenter drops
-/** Minimal CSV parser: commas, double quotes, embedded quotes and commas. */
-export function parseCsv(text: string): string[][] {
+/** The delimiter of a CSV, read from its header line: semicolon (French exports) or comma. */
+export function delimiterOf(text: string): string {
+  const head = text.split(/\r?\n/, 1)[0];
+  return (head.match(/;/g)?.length ?? 0) > (head.match(/,/g)?.length ?? 0) ? ";" : ",";
+}
+
+/** Minimal CSV parser: one delimiter, double quotes, embedded quotes and delimiters. */
+export function parseCsv(text: string, delim = ","): string[][] {
   const rows: string[][] = [];
   let row: string[] = [], cell = "", q = false;
   for (let i = 0; i < text.length; i++) {
@@ -32,7 +47,7 @@ export function parseCsv(text: string): string[][] {
       else if (c === '"') q = false;
       else cell += c;
     } else if (c === '"') q = true;
-    else if (c === ",") { row.push(cell); cell = ""; }
+    else if (c === delim) { row.push(cell); cell = ""; }
     else if (c === "\n" || c === "\r") {
       if (c === "\r" && text[i + 1] === "\n") i++;
       row.push(cell); rows.push(row); row = []; cell = "";
@@ -42,11 +57,12 @@ export function parseCsv(text: string): string[][] {
   return rows.filter((r) => r.some((x) => x.trim() !== ""));
 }
 
-/** The demo is scripted on one file: same header, same barcodes, same row count. */
+/** The demo is scripted on its two files: same header (English or French), same barcodes, same row count. */
 export function isDemoFile(text: string): boolean {
-  const rows = parseCsv(text.replace(/^﻿/, ""));
+  const clean = text.replace(/^\uFEFF/, "");
+  const rows = parseCsv(clean, delimiterOf(clean));
   if (rows.length !== N + 1) return false;
-  if (rows[0].join(",") !== COLUMNS.join(",")) return false;
+  if (!Object.values(COLUMN_NAMES).some((cols) => rows[0].join("|") === cols.join("|"))) return false;
   const eans = new Set(rows.slice(1).map((r) => r[0]));
   return PRODUCTS.every((p) => eans.has(p.raw.ean));
 }

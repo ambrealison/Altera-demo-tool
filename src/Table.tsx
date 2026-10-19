@@ -24,6 +24,7 @@ export function RowsTable({ view, lang, marks, busy, accepted }: Props) {
   const empty = <td className="empty">{L.emptyCell}</td>;
   const v = (s: string, render?: (s: string) => ReactNode) => (s === "" ? empty : <td>{render ? render(s) : s}</td>);
   const scoped = marks.has("scope");
+  const dec = (x: string) => (lang === "fr" ? x.replace(".", ",") : x);
 
   const head: Record<View, string[]> = {
     raw: [C.ean, C.product, C.brand, C.dept, C.weight, "kcal", C.prot, C.units, lang === "fr" ? "Ingrédients" : "Ingredients"],
@@ -48,8 +49,8 @@ export function RowsTable({ view, lang, marks, busy, accepted }: Props) {
         <td>{r.brand}</td>
         <td>{dept(r.department, lang)}</td>
         {v(r.net_weight_kg, (x) => `${fmtNum(Number(x), lang, 3)} kg`)}
-        {v(r.energy_kcal_100g)}
-        {v(r.protein_g_100g)}
+        {v(r.energy_kcal_100g, dec)}
+        {v(r.protein_g_100g, dec)}
         <td className="num">{fmtInt(Number(r.units_sold_12m), lang)}</td>
         {v(r.ingredients, (x) => <span className="chip ghosted">{fmtInt(x.length, lang)} chars</span>)}
       </tr>
@@ -84,7 +85,7 @@ export function RowsTable({ view, lang, marks, busy, accepted }: Props) {
         <tr key={i} className={done ? "fresh" : ""}>
           {name}
           {done ? <>
-            <td><span className={`chip ${s.route === "model" ? "ok" : s.route === "segment" ? "composite" : "ink"}`}>{L.routes[s.route]}</span></td>
+            <td><span className={`chip ${s.route === "model" ? "ok" : "ink"}`}>{L.routes[s.route]}</span></td>
             <td>{wwf}</td>
             <td><span className={`chip ${s.pt}`}><i />{L.classes[s.pt!]}</span></td>
             <td className="conf">{s.route === "model" ? fmtNum(s.conf, lang, 2) : <span className="chip ghosted">{lang === "fr" ? "connu" : "known"}</span>}</td>

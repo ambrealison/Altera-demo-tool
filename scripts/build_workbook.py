@@ -66,7 +66,7 @@ SUB = {"red_meat": "red meat", "poultry": "poultry", "fish_shellfish": "fish and
        "tofu_tempeh_seitan": "tofu, tempeh, seitan", "nuts": "nuts", "dairy_alternatives": "dairy alternatives",
        "refined_grain": "refined grain", "whole_grain": "whole grain"}
 CAT = {"meat_based": "Meat-based", "seafood_based": "Seafood-based", "vegetarian": "Vegetarian", "vegan": "Vegan"}
-ROUTE = {"reference": "Altera reference base", "segment": "Unanimous segment", "model": "Language model"}
+ROUTE = {"reference": "Altera reference base", "model": "Language model"}
 PSRC = {"declared": "Declared by the retailer, checked", "reference": "Altera reference base", "off": "Open Food Facts",
         "nevo": "NEVO", "ciqual": "CIQUAL", "median": "Median of the segment"}
 SPLIT = {"one_side": "Single origin", "ingredients": "Ingredient list", "nevo": "NEVO table", "convention": "50/50 convention", "zero": "No protein"}

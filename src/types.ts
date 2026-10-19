@@ -1,7 +1,7 @@
 export type Lang = "en" | "fr";
 
 export type PtClass = "animal_core" | "composite" | "plant_non_core" | "plant_core";
-export type Route = "reference" | "segment" | "model";
+export type Route = "reference" | "model";
 export type ProtSrc = "declared" | "reference" | "off" | "nevo" | "ciqual" | "median";
 export type SplitMethod = "one_side" | "ingredients" | "nevo" | "convention" | "zero";
 export type Excl = "non_food" | "beverage" | "alcohol";

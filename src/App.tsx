@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { AnomalyId, Lang } from "./types";
 import { STEP_IDS, T, dept, fill, type StepId } from "./i18n";
-import { ANOMALIES, BOOKING_URL, COLUMNS, DOWNLOADS, FILE_NAME, IN_PT, N, PHD, PRODUCTS, PT_CLASSES, RESULTS, FOOD_GROUPS, fmtNum, fmtPct, isDemoFile } from "./data";
+import { ANOMALIES, BOOKING_URL, COLUMN_NAMES, DEMO_FILES, DOWNLOADS, IN_PT, N, PHD, PRODUCTS, PT_CLASSES, RESULTS, FOOD_GROUPS, delimiterOf, fmtNum, fmtPct, isDemoFile } from "./data";
 import { useRunner, type Line } from "./runner";
-import { CHECK_COUNT, FILE_WINDOWS, FILL, checksScript, classifyScript, deliverScript, importScript, matchScript, qualityScript, ratiosScript, type Script } from "./engine";
+import { CHECK_COUNT, CROSS, DELIVER_TOTAL, FILE_WINDOWS, FILL, checksScript, classifyScript, deliverScript, importScript, matchScript, qualityScript, ratiosScript, type Script } from "./engine";
 import { RowsTable } from "./Table";
 
 type Status = "locked" | "ready" | "running" | "attention" | "done";
@@ -32,6 +32,7 @@ export default function App() {
   const [view, setView] = useState<StepId>("import");
   const [accepted, setAccepted] = useState<Set<AnomalyId>>(new Set());
   const [fileError, setFileError] = useState(false);
+  const [fileName, setFileName] = useState("");
   const run = useRunner();
   const L = T[lang];
 
@@ -73,10 +74,11 @@ export default function App() {
     const text = await f.text();
     if (!isDemoFile(text)) { setFileError(true); run.say("warn", lang === "fr" ? `${f.name} : ce n'est pas le fichier de démo, refusé` : `${f.name}: not the demo file, rejected`, true); return; }
     setFileError(false);
-    play("import", importScript(f.size, lang));
+    setFileName(f.name);
+    play("import", importScript(f.size, lang, f.name, delimiterOf(text.replace(/^\uFEFF/, ""))));
   };
 
-  const reset = () => { run.reset(); setStatus(INITIAL); setView("import"); setAccepted(new Set()); setFileError(false); };
+  const reset = () => { run.reset(); setStatus(INITIAL); setView("import"); setAccepted(new Set()); setFileError(false); setFileName(""); };
 
   const st = status[view];
   const S = L.steps[view];
@@ -88,7 +90,7 @@ export default function App() {
     <>
       <div className="app">
         <header className="top">
-          <div className="logo"><b>Altera<em>.ai</em></b><span>AI · {L.demo}</span></div>
+          <div className="logo"><b>Altera<em>.ai</em></b><span>{L.demo}</span></div>
           <div className="crumb">{imported ? <><b>Harbour Market</b><span>·</span><span>{L.project.split("·")[1]}</span></> : <span>{L.newProject}</span>}</div>
           <div className="top-r">
             <span className="badge">{L.fictitious}</span>
@@ -134,7 +136,7 @@ export default function App() {
             </div>
             {st === "running" && <div className="progress"><i style={{ width: `${run.progress * 100}%` }} /></div>}
 
-            {view === "import" && <ImportPanel lang={lang} status={status.import} error={fileError} onFile={onFile} marks={run.marks} />}
+            {view === "import" && <ImportPanel lang={lang} status={status.import} error={fileError} fileName={fileName} onFile={onFile} marks={run.marks} />}
             {view === "checks" && <ChecksPanel lang={lang} st={st} marks={run.marks} busy={run.busy} accepted={accepted} accept={accept} />}
             {view === "classify" && <ClassifyPanel lang={lang} st={st} marks={run.marks} busy={run.busy} accepted={accepted} />}
             {view === "match" && <MatchPanel lang={lang} st={st} marks={run.marks} busy={run.busy} accepted={accepted} accept={accept} />}
@@ -173,18 +175,18 @@ function LogPanel({ lang, lines, busy }: { lang: Lang; lines: Line[]; busy: bool
 }
 
 // ------------------------------------------------------------ 1 · import
-function ImportPanel({ lang, status, error, onFile, marks }: { lang: Lang; status: Status; error: boolean; onFile: (f: File) => void; marks: Set<string> }) {
+function ImportPanel({ lang, status, error, fileName, onFile, marks }: { lang: Lang; status: Status; error: boolean; fileName: string; onFile: (f: File) => void; marks: Set<string> }) {
   const L = T[lang];
   const [over, setOver] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   if (status === "done" || marks.has("imported")) return (
     <>
-      <div className="ctitle" style={{ marginTop: 4 }}><span>{L.asReceived}</span><span className="chip">{fill(L.rowsCols, { r: N, c: COLUMNS.length })}</span></div>
+      <div className="ctitle" style={{ marginTop: 4 }}><span>{L.asReceived}</span><span className="chip">{fill(L.rowsCols, { r: N, c: COLUMN_NAMES[lang].length })}</span></div>
       <RowsTable view="raw" lang={lang} marks={marks} busy={false} accepted={new Set()} />
     </>
   );
   if (status === "running") return (
-    <div className="drop"><span className="ico"><span className="spin" style={{ width: 22, height: 22 }} /></span><h2>{L.reading}</h2><p className="mono">{FILE_NAME}</p></div>
+    <div className="drop"><span className="ico"><span className="spin" style={{ width: 22, height: 22 }} /></span><h2>{L.reading}</h2><p className="mono">{fileName || DEMO_FILES[lang]}</p></div>
   );
   return (
     <>
@@ -196,10 +198,10 @@ function ImportPanel({ lang, status, error, onFile, marks }: { lang: Lang; statu
         <p>{L.dropText}</p>
         <button className="browse" onClick={() => input.current?.click()}>{L.browse}</button>
         <input ref={input} type="file" accept=".csv,text/csv" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); e.target.value = ""; }} />
-        <div className="cols">{COLUMNS.map((c) => <span key={c}>{c}</span>)}</div>
-        {error && <div className="err">{L.wrongFile}</div>}
+        <div className="cols">{COLUMN_NAMES[lang].map((c) => <span key={c}>{c}</span>)}</div>
+        {error && <div className="err">{fill(L.wrongFile, { file: DEMO_FILES[lang] })}</div>}
       </div>
-      <div className="getfile"><a href={`demo/${FILE_NAME}`} download>{L.getFile}</a></div>
+      <div className="getfile"><a href={`demo/${DEMO_FILES[lang]}`} download>{L.getFile}</a></div>
     </>
   );
 }
@@ -246,7 +248,7 @@ function ChecksPanel({ lang, st, marks, busy, accepted, accept }: { lang: Lang; 
           <div className="ctitle">{L.inventory}</div>
           {FILL.map((f) => (
             <div className="frow" key={f.col}>
-              <span className="mono" style={{ fontSize: 12 }}>{f.col}</span>
+              <span className="mono" style={{ fontSize: 12 }}>{COLUMN_NAMES[lang][f.i]}</span>
               <span className="track"><i style={{ width: marks.has("fill") ? `${f.rate * 100}%` : 0, background: f.rate > 0.95 ? "var(--ink)" : f.rate > 0.75 ? "var(--green-2)" : "var(--animal)" }} /></span>
               <b>{marks.has("fill") ? fmtPct(f.rate, lang, 0) : ""}</b>
             </div>
@@ -271,11 +273,15 @@ function ChecksPanel({ lang, st, marks, busy, accepted, accept }: { lang: Lang; 
 // ------------------------------------------------------------ 3 · classification
 function ClassifyPanel({ lang, marks, busy, accepted }: { lang: Lang; st: Status; marks: Set<string>; busy: boolean; accepted: Set<AnomalyId> }) {
   const L = T[lang];
-  const routes = (["reference", "segment", "model"] as const).map((r) => ({ r, n: IN_PT.filter((p) => p.res.route === r && marks.has(`cls:${PRODUCTS.indexOf(p)}`)).length }));
+  const seen = (p: (typeof PRODUCTS)[number]) => marks.has(`cls:${PRODUCTS.indexOf(p)}`);
+  const cards: [string, number, string, string][] = [
+    ...(["reference", "model"] as const).map((r) => [r, IN_PT.filter((p) => p.res.route === r && seen(p)).length, L.routes[r], L.routeNotes[r]] as [string, number, string, string]),
+    ["out", PRODUCTS.filter((p) => !p.res.inPt && seen(p)).length, ...L.routeOut],
+  ];
   return (
     <>
       <div className="grid3" style={{ marginBottom: 14 }}>
-        {routes.map(({ r, n }, i) => <div className="stat" key={r}><span className="sn">{i + 1}</span><b>{n}</b><span><strong>{L.routes[r]}</strong>{L.routeNotes[r]}</span></div>)}
+        {cards.map(([k, n, name, note]) => <div className={`stat ${k === "out" ? "out" : ""}`} key={k}><b>{n}</b><span><strong>{name}</strong>{note}</span></div>)}
       </div>
       <RowsTable view="classify" lang={lang} marks={marks} busy={busy} accepted={accepted} />
     </>
@@ -367,17 +373,19 @@ function QualityPanel({ lang, marks }: { lang: Lang; marks: Set<string> }) {
       <div className="card">
         <div className="checks">
           {L.checkGroups.map(([g, items], gi) => (
-            <div className="cgroup" key={g}>
+            <div className={`cgroup ${gi === 4 ? "wide" : ""}`} key={g}>
               <h3>{g}</h3>
-              {items.slice(0, CHECK_COUNT[gi]).map(([t, d], i) => {
-                const ok = marks.has(`chk:${gi}-${i}`);
-                return (
-                  <div className="citem" key={t}>
-                    <span className={`tick ${ok ? "ok" : ""}`}>{ok ? <Ico d={I.check} size={12} /> : null}</span>
-                    <span>{t}<small>{ok ? fill(d, { n: IN_PT.length }) : " "}</small></span>
-                  </div>
-                );
-              })}
+              <div className="items">
+                {items.slice(0, CHECK_COUNT[gi]).map(([t, d], i) => {
+                  const ok = marks.has(`chk:${gi}-${i}`);
+                  return (
+                    <div className="citem" key={t}>
+                      <span className={`tick ${ok ? "ok" : ""}`}>{ok ? <Ico d={I.check} size={12} /> : null}</span>
+                      <span>{t}<small>{ok ? fill(d, { n: IN_PT.length, ...CROSS }) : " "}</small></span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           ))}
         </div>
@@ -393,9 +401,9 @@ function QualityPanel({ lang, marks }: { lang: Lang; marks: Set<string> }) {
 // ------------------------------------------------------------ 7 · deliverables
 function DeliverPanel({ lang, st, marks, progress }: { lang: Lang; st: Status; marks: Set<string>; progress: number }) {
   const L = T[lang];
-  const icons = [I.sheet, I.table, I.report, I.doc];
-  const hrefs = [DOWNLOADS.workbook, DOWNLOADS.csv, DOWNLOADS.report[lang], DOWNLOADS.scope[lang]];
-  const total = 8000;
+  const icons = [I.report, I.sheet, I.table, I.doc];
+  const hrefs = [DOWNLOADS.report[lang], DOWNLOADS.workbook, DOWNLOADS.csv, DOWNLOADS.scope[lang]];
+  const total = DELIVER_TOTAL;
   return (
     <>
       <div className="files">

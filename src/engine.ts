@@ -4,7 +4,7 @@
 import type { Event } from "./runner";
 import { spread } from "./runner";
 import type { Lang, Product } from "./types";
-import { ANOMALIES, COLUMNS, IN_PT, N, PRODUCTS, RESULTS, fmtNum, fmtPct } from "./data";
+import { ANOMALIES, COLUMNS, COLUMN_NAMES, IN_PT, N, PRODUCTS, RESULTS, fmtNum, fmtPct, segment } from "./data";
 
 const idx = (key: string) => PRODUCTS.findIndex((p) => p.key === key);
 const P = (key: string) => PRODUCTS[idx(key)];
@@ -40,14 +40,14 @@ export function wwfText(p: Product, lang: Lang, withOrigin = true): string {
 export interface Script { events: Event[]; total: number }
 
 // ------------------------------------------------------------ 1 · import
-export function importScript(bytes: number, lang: Lang): Script {
+export function importScript(bytes: number, lang: Lang, name: string, delim: string): Script {
   const fr = lang === "fr";
   return {
     total: 3400,
     events: [
-      { at: 150, log: { tag: "file", text: `harbour_market_catalogue.csv ${fr ? "reçu" : "received"} · ${fmtNum(bytes / 1024, lang, 1)} ${fr ? "Ko" : "KB"}` } },
+      { at: 150, log: { tag: "file", text: `${name} ${fr ? "reçu" : "received"} · ${fmtNum(bytes / 1024, lang, 1)} ${fr ? "Ko" : "KB"}` } },
       { at: 900, log: { tag: "file", text: fr ? "Archivé tel que reçu, en lecture seule · sha256 3f9a…c21e" : "Archived as received, read-only · sha256 3f9a…c21e" } },
-      { at: 1700, log: { tag: "file", text: fr ? `UTF-8 · séparateur "," · ${N} lignes · ${COLUMNS.length} colonnes` : `UTF-8 · delimiter "," · ${N} rows · ${COLUMNS.length} columns` } },
+      { at: 1700, log: { tag: "file", text: fr ? `UTF-8 · séparateur "${delim}" · ${N} lignes · ${COLUMNS.length} colonnes` : `UTF-8 · delimiter "${delim}" · ${N} rows · ${COLUMNS.length} columns` } },
       { at: 2500, log: { tag: "file", text: fr ? "En-tête conforme au modèle d'import Altera · travail sur une copie" : "Header matches the Altera import template · working on a copy" } },
       { at: 3200, mark: "imported" },
     ],
@@ -55,13 +55,13 @@ export function importScript(bytes: number, lang: Lang): Script {
 }
 
 // ------------------------------------------------------------ 2 · data checks
-export const FILL = COLUMNS.map((c) => ({ col: c, rate: PRODUCTS.filter((p) => p.raw[c] !== "").length / N }));
+export const FILL = COLUMNS.map((c, i) => ({ col: c, i, rate: PRODUCTS.filter((p) => p.raw[c] !== "").length / N }));
 
 export function checksScript(lang: Lang): Script {
   const fr = lang === "fr";
   const ev: Event[] = [{ at: 150, log: { tag: "file", text: fr ? `Inventaire de ${COLUMNS.length} colonnes sur ${N} lignes` : `Inventory of ${COLUMNS.length} columns over ${N} rows` } }];
   const shown = FILL.filter((f) => f.rate < 1);
-  spread(shown.length, 500, 2100, 3).forEach((at, i) => ev.push({ at, log: { tag: "file", text: `${shown[i].col}: ${fmtPct(shown[i].rate, lang, 0)} ${fr ? "rempli" : "filled"}` } }));
+  spread(shown.length, 500, 2100, 3).forEach((at, i) => ev.push({ at, log: { tag: "file", text: `${COLUMN_NAMES[lang][shown[i].i]}${fr ? " :" : ":"} ${fmtPct(shown[i].rate, lang, 0)} ${fr ? "rempli" : "filled"}` } }));
   const a = ANOMALIES.find((x) => x.id === "ean")!, w = ANOMALIES.find((x) => x.id === "weight")!;
   const row = fr ? "ligne" : "row";
   ev.push(
@@ -81,25 +81,19 @@ export function checksScript(lang: Lang): Script {
 }
 
 // ------------------------------------------------------------ 3 · classification
-const SEGMENT_KNOWN: Record<string, number> = { chicken: 5, camembert: 4, yogurt: 6, oil: 3, oat_drink: 4, bread: 5 };
-
 export function classifyScript(lang: Lang): Script {
   const fr = lang === "fr";
-  const ev: Event[] = [{ at: 150, log: { tag: "rules", text: fr ? `${IN_PT.length} produits à classer · base de référence, puis segments unanimes, puis modèle de langage` : `${IN_PT.length} products to classify · reference base, then unanimous segments, then the language model` } }];
+  const ev: Event[] = [{ at: 150, log: { tag: "rules", text: fr ? `${IN_PT.length} produits à classer · base de référence Altera, puis modèle de langage` : `${IN_PT.length} products to classify · Altera reference base, then the language model` } }];
+  const out = P("lotus");
+  ev.push({ at: 350, mark: `cls:${idx(out.key)}`, log: { tag: "scope", text: fr ? `${label(out)} → hors périmètre, non alimentaire : non classé` : `${label(out)} → out of scope, non-food: not classified` } });
   const ref = IN_PT.filter((p) => p.res.route === "reference");
-  const seg = IN_PT.filter((p) => p.res.route === "segment");
   const mod = IN_PT.filter((p) => p.res.route === "model");
-  spread(ref.length, 500, 2500, 5).forEach((at, i) => {
+  spread(ref.length, 600, 3700, 5).forEach((at, i) => {
     const p = ref[i];
     ev.push({ at, mark: `cls:${idx(p.key)}`, log: { tag: "ref", text: `${p.res.ean} ${label(p)} → ${fr ? "connu" : "known"} · ${wwfText(p, lang)} | ${CLS[p.res.pt!]}` } });
   });
-  spread(seg.length, 2800, 4300, 7).forEach((at, i) => {
-    const p = seg[i];
-    const n = SEGMENT_KNOWN[p.key] ?? 3;
-    ev.push({ at, mark: `cls:${idx(p.key)}`, log: { tag: "segment", text: `${p.raw.department} › ${p.raw.segment}: ${fr ? `${n} produits connus concordent` : `${n} known products agree`} → ${wwfText(p, lang)} | ${CLS[p.res.pt!]}` } });
-  });
-  ev.push({ at: 4600, log: { tag: "model", text: fr ? `${mod.length} produits envoyés en un lot · instructions communes en cache · raisonnement désactivé` : `${mod.length} products sent in one batch · shared instructions cached · reasoning off` } });
-  spread(mod.length, 5000, 8900, 11).forEach((at, i) => {
+  ev.push({ at: 4000, log: { tag: "model", text: fr ? `${mod.length} produits envoyés en un lot · instructions communes en cache · raisonnement désactivé` : `${mod.length} products sent in one batch · shared instructions cached · reasoning off` } });
+  spread(mod.length, 4400, 8900, 11).forEach((at, i) => {
     const p = mod[i];
     ev.push({ at, mark: `cls:${idx(p.key)}`, log: { tag: "model", text: `${label(p)} → ${wwfText(p, lang)} | ${CLS[p.res.pt!]} · ${fmtNum(p.res.conf, lang, 2)}` } });
   });
@@ -132,7 +126,7 @@ export function matchScript(lang: Lang): Script {
     const p = by("ciqual")[i];
     ev.push({ at, mark: `prot:${idx(p.key)}`, log: { tag: "ciqual", text: `${label(p)}${fr ? " : rapprochement par nom" : ": name match"} "${p.res.matched}" (${fmtNum(SIM[p.key], lang, 2)}) → ${g(p)}` } });
   });
-  for (const p of by("median")) ev.push({ at: 5950, mark: `prot:${idx(p.key)}`, log: { tag: "median", text: fr ? `${label(p)} : médiane du segment "${p.raw.segment}" (n = 6) → ${g(p)}` : `${label(p)}: median of the segment "${p.raw.segment}" (n = 6) → ${g(p)}` } });
+  for (const p of by("median")) ev.push({ at: 5950, mark: `prot:${idx(p.key)}`, log: { tag: "median", text: fr ? `${label(p)} : médiane du segment "${segment(p.raw.segment, lang)}" (n = 6) → ${g(p)}` : `${label(p)}: median of the segment "${p.raw.segment}" (n = 6) → ${g(p)}` } });
 
   const one = IN_PT.filter((p) => p.res.split === "one_side");
   const zero = IN_PT.filter((p) => p.res.split === "zero");
@@ -172,47 +166,70 @@ export function ratiosScript(lang: Lang): Script {
 }
 
 // ------------------------------------------------------------ 6 · quality checks
-export const CHECK_COUNT = [3, 3, 2, 2];
+export const CHECK_COUNT = [3, 3, 2, 2, 3];
+/** Values cross-checked between sources: by barcode against Open Food Facts, by name against NEVO. */
+const byBarcode = IN_PT.filter((p) => p.res.protSrc === "declared" || p.res.protSrc === "reference").length + 1; // + the per-pack value
+const byName = IN_PT.filter((p) => p.res.protSrc === "off" || p.res.protSrc === "ciqual").length;
+export const CROSS = { a: byBarcode, b: byBarcode - 1, c: byName };
+
 export function qualityScript(lang: Lang): Script {
   const n = IN_PT.length;
-  const lines = lang === "fr" ? [
+  const fr = lang === "fr";
+  const pr = P("pringles"), pz = P("pizza");
+  const lines = fr ? [
     `Identités · végétal + animal = total sur ${n} lignes ✓`, "Identités · chaque total égale la somme de son bloc ✓", "Identités · chaque tableau couvre toutes les valeurs de sa colonne ✓",
     "Méthode · aucun groupe d'aliments sur un composé WWF ✓", "Méthode · sous-groupes en FG1, FG2, FG3, FG5 seulement ✓", "Méthode · facteur laitier ×10 sur le fromage seulement (1 produit) ✓",
     "Données · bilan d'énergie des valeurs déclarées · 1 valeur remplacée ✓", `Données · ${n} valeurs sur ${n} portent leur source ✓`,
     "Classeur · chaque formule recalculée hors d'Excel · tout concorde ✓", "Classeur · 8 onglets évalués dans un tableur ✓",
+    `Sources · ${CROSS.a} teneurs comparées à Open Food Facts par code-barres : ${CROSS.b} concordent, 1 valeur par paquet déjà remplacée ✓`,
+    `Sources · ${CROSS.c} teneurs Open Food Facts et CIQUAL comparées à NEVO par nom : toutes dans la tolérance d'étiquetage UE ✓`,
+    `Sources · ${label(pr)} : partage NEVO "${pr.res.matched}" ${fmtPct(pr.res.plant, lang, 0)} végétal contre la liste d'ingrédients (pomme de terre, farines de riz et de maïs en tête ; lait seulement dans l'assaisonnement) → cohérent ✓`,
   ] : [
     `Identities · plant + animal = total on ${n} rows ✓`, "Identities · every total equals the sum of its block ✓", "Identities · every table covers every value of its column ✓",
     "Methodology · no food group on a WWF composite ✓", "Methodology · sub-groups only in FG1, FG2, FG3, FG5 ✓", "Methodology · ×10 dairy factor on cheese only (1 product) ✓",
     "Data · energy balance of declared values · 1 value replaced ✓", `Data · ${n} of ${n} values carry their source ✓`,
     "Workbook · every formula recomputed outside Excel · all match ✓", "Workbook · 8 tabs evaluated in a spreadsheet ✓",
+    `Sources · ${CROSS.a} protein values against Open Food Facts by barcode: ${CROSS.b} match, 1 per-pack value already replaced ✓`,
+    `Sources · ${CROSS.c} Open Food Facts and CIQUAL values against NEVO by name: all within the EU labelling tolerance ✓`,
+    `Sources · ${label(pr)}: NEVO split "${pr.res.matched}" ${fmtPct(pr.res.plant, lang, 0)} plant against the ingredient list (potato, rice and maize flour first; milk only in the seasoning) → consistent ✓`,
   ];
   const ev: Event[] = [];
   let k = 0;
-  CHECK_COUNT.forEach((c, g) => { for (let i = 0; i < c; i++, k++) ev.push({ at: 400 + k * 560, mark: `chk:${g}-${i}`, log: { tag: "check", text: lines[k] } }); });
-  ev.push({ at: 6300, mark: "sample", log: { tag: "check", text: lang === "fr" ? `Échantillon de contrôle : ${n} lignes scellées pour la relecture humaine` : `Control sample: ${n} rows sealed for human review` } });
-  return { events: ev, total: 6700 };
+  CHECK_COUNT.forEach((c, g) => { for (let i = 0; i < c; i++, k++) ev.push({ at: 400 + k * 540, mark: `chk:${g}-${i}`, log: { tag: "check", text: lines[k] } }); });
+  ev.push({ at: 400 + (k - 1) * 540 + 300, log: { tag: "check", text: fr ? `Sources · ${label(pz)} : candidats NEVO en désaccord, le partage NEVO n'est pas retenu → convention 50/50, niveau B ✓` : `Sources · ${label(pz)}: NEVO candidates disagree, no NEVO split kept → 50/50 convention, level B ✓` } });
+  const end = 400 + k * 540 + 500;
+  ev.push({ at: end, mark: "sample", log: { tag: "check", text: fr ? `Échantillon de contrôle : ${n} lignes scellées pour la relecture humaine` : `Control sample: ${n} rows sealed for human review` } });
+  return { events: ev, total: end + 400 };
 }
 
 // ------------------------------------------------------------ 7 · deliverables
-export const FILE_WINDOWS: [number, number][] = [[200, 2600], [2600, 4200], [4200, 6400], [6400, 7800]];
+// the insights report first, then the workbook, the line-level file and the scope statement
+export const DELIVER_TOTAL = 20000;
+export const FILE_WINDOWS: [number, number][] = [[300, 7000], [7000, 13200], [13200, 16200], [16200, 19600]];
 export function deliverScript(lang: Lang): Script {
   const fr = lang === "fr";
-  const text = fr ? [
-    "Classeur · 8 onglets, piloté par formules · une seule entrée : les volumes · recalculé hors d'Excel ✓",
-    `Fichier ligne à ligne · ${IN_PT.length} lignes · classe, teneur, partage, niveau et source de chaque valeur ✓`,
-    "Rapport d'analyse · 5 pages ✓",
-    "Déclaration de périmètre · périmètre couvert, approche produit par produit, données utilisées, hypothèses de volumes ✓",
+  const R = RESULTS;
+  const name = fr ? ["Rapport d'analyse", "Classeur", "Fichier ligne à ligne", "Déclaration de périmètre"] : ["Insights report", "Workbook", "Line-level file", "Scope statement"];
+  const steps: string[][] = fr ? [
+    [`page 1/5 · couverture, les ratios en un coup d'œil`, `page 2/5 · le périmètre : ${IN_PT.length} produits, ${fmtNum(R.massT, lang, 0)} t`, "page 3/5 · WWF par groupe d'aliments", "page 4/5 · Protein Tracker par classe et par rayon", "page 5/5 · les leviers : 3 scénarios recalculés"],
+    ["onglets Bienvenue, WWF, Protein Tracker, Par rayon", "onglets Périmètre, Corrections, Contrôles, Données", "372 formules écrites · une seule saisie : les volumes", "recalcul dans un tableur : 372 formules sur 372 concordent"],
+    [`${IN_PT.length} lignes · 26 colonnes`, "source de chaque valeur écrite"],
+    ["périmètre couvert · approche produit par produit", "données utilisées · hypothèses de volumes"],
   ] : [
-    "Workbook · 8 tabs, formula-driven · one input: volumes · recomputed outside Excel ✓",
-    `Line-level file · ${IN_PT.length} rows · class, content, split, level and source of every value ✓`,
-    "Insights report · 5 pages ✓",
-    "Scope statement · scope covered, product-level approach, data used, volume assumptions ✓",
+    ["page 1/5 · cover, the ratios at a glance", `page 2/5 · the scope: ${IN_PT.length} products, ${fmtNum(R.massT, lang, 0)} t`, "page 3/5 · WWF by food group", "page 4/5 · Protein Tracker by class and department", "page 5/5 · the levers: 3 scenarios recalculated"],
+    ["tabs Welcome, WWF, Protein Tracker, By department", "tabs Scope, Corrections, Checks, Data", "372 formulas written · one input: volumes", "recalculated in a spreadsheet: 372 of 372 formulas match"],
+    [`${IN_PT.length} rows · 26 columns`, "source of every value written"],
+    ["scope covered · product-level approach", "data used · volume assumptions"],
   ];
+  const done = fr
+    ? ["5 pages ✓", "8 onglets, piloté par formules ✓", `${IN_PT.length} lignes ✓`, "1 page ✓"]
+    : ["5 pages ✓", "8 tabs, formula-driven ✓", `${IN_PT.length} rows ✓`, "1 page ✓"];
   return {
-    total: 8000,
+    total: DELIVER_TOTAL,
     events: FILE_WINDOWS.flatMap(([a, b], i) => [
-      { at: a, log: { tag: "out", text: `${text[i].split(" · ")[0]} · ${fr ? "en cours" : "building"}…` } },
-      { at: b - 100, mark: `file:${i}`, log: { tag: "out", text: text[i] } },
+      { at: a, log: { tag: "out", text: `${name[i]} · ${fr ? "en cours" : "building"}…` } },
+      ...spread(steps[i].length, a + 400, b - 700, 31 + i).map((at, j) => ({ at, log: { tag: "out", text: `${name[i]} · ${steps[i][j]}` } })),
+      { at: b - 100, mark: `file:${i}`, log: { tag: "out", text: `${name[i]} · ${done[i]}` } },
     ]),
   };
 }

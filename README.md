@@ -11,13 +11,15 @@ Live: https://ambrealison.github.io/Altera-demo-tool/ (`?lang=fr` opens it in Fr
 Nothing calls a remote service. Every result the engine shows was prepared in advance from
 the catalogue (`src/data/catalogue.json`); each button plays a timed script (`src/engine.ts`)
 that paces those results into the table and prints the engine log a real run would print.
-Steps take 3 to 10 seconds. Three anomalies are planted in the file (a mistyped barcode, a
+Steps take 3 to 10 seconds; the deliverables take about 20. Three anomalies are planted in the file (a mistyped barcode, a
 missing net weight, a per-pack protein value); the presenter accepts each proposed correction
 before the pipeline moves on.
 
-The tool accepts only the demo file, `public/demo/harbour_market_catalogue.csv` (same header,
-same barcodes); any other CSV is refused with a message. The file can be downloaded from the
-import screen.
+The tool accepts only the two demo files, the same 30 rows in each:
+`public/demo/harbour_market_catalogue.csv` (English headers, commas) and
+`public/demo/catalogue_harbour_market.csv` (French headers, semicolons, decimal commas). Any
+other CSV is refused with a message. The import screen offers the file that matches the
+interface language.
 
 ## The data
 
