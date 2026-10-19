@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { AnomalyId, Lang } from "./types";
 import { STEP_IDS, T, dept, fill, type StepId } from "./i18n";
-import { ANOMALIES, BOOKING_URL, COLUMN_NAMES, DEMO_FILES, DOWNLOADS, IN_PT, N, PHD, PRODUCTS, PT_CLASSES, RESULTS, FOOD_GROUPS, delimiterOf, fmtNum, fmtPct, isDemoFile } from "./data";
+import { ANOMALIES, BOOKING_URL, COLUMN_NAMES, DEMO_FILES, DOWNLOADS, IN_PT, N, PHD, PRODUCTS, PT_CLASSES, RESULTS, FOOD_GROUPS, delimiterOf, fmtNum, fmtPct, isDemoFile, tillLabel } from "./data";
 import { useRunner, type Line } from "./runner";
 import { CHECK_COUNT, CROSS, DELIVER_TOTAL, FILE_WINDOWS, FILL, checksScript, classifyScript, deliverScript, importScript, matchScript, qualityScript, ratiosScript, type Script } from "./engine";
 import { RowsTable } from "./Table";
@@ -58,7 +58,7 @@ export default function App() {
     const fr = lang === "fr";
     const text = id === "ean" ? (fr ? `ligne ${a.row + 1} : code-barres corrigé en ${a.to} (accepté)` : `row ${a.row + 1}: barcode corrected to ${a.to} (accepted)`)
       : id === "weight" ? (fr ? `ligne ${a.row + 1} : poids net fixé à ${fmtNum(Number(a.to), lang, 3)} kg, lu sur le libellé caisse (accepté)` : `row ${a.row + 1}: net weight set to ${a.to} kg, from the till label (accepted)`)
-      : (fr ? `${p.raw.till_label} : ${fmtNum(Number(a.to), lang, 1)} g retenus, issus d'Open Food Facts (accepté)` : `${p.raw.till_label}: ${a.to} g kept, from Open Food Facts (accepted)`);
+      : (fr ? `${tillLabel(p, lang)} : ${fmtNum(Number(a.to), lang, 1)} g retenus, issus d'Open Food Facts (accepté)` : `${tillLabel(p, lang)}: ${a.to} g kept, from Open Food Facts (accepted)`);
     run.say(id === "protein" ? "off" : id, text);
     const next = new Set(accepted).add(id);
     setAccepted(next);
@@ -225,7 +225,7 @@ function Anomalies({ lang, ids, marks, accepted, accept, canAccept }: { lang: La
           return (
             <div className={`anom ${ok ? "ok" : ""}`} key={a.id}>
               <span className="ai">{ok ? <Ico d={I.check} /> : "!"}</span>
-              <div><b>{title} · <span className="mono" style={{ fontWeight: 500 }}>{p.raw.till_label}</span></b><p>{text}</p><span className="fx">{fx}</span></div>
+              <div><b>{title} · <span className="mono" style={{ fontWeight: 500 }}>{tillLabel(p, lang)}</span></b><p>{text}</p><span className="fx">{fx}</span></div>
               {ok ? <span className="chip ok">{L.accepted}</span> : <button className="accept" disabled={!canAccept} onClick={() => accept(a.id)}>{L.accept}</button>}
             </div>
           );

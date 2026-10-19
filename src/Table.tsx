@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import type { AnomalyId, Lang, Product } from "./types";
 import { T, dept } from "./i18n";
-import { ANOMALIES, PRODUCTS, fmtInt, fmtNum, fmtPct } from "./data";
+import { ANOMALIES, PRODUCTS, fmtInt, fmtNum, fmtPct, ingredients, productName, tillLabel } from "./data";
 import { wwfText } from "./engine";
 
 export type View = "raw" | "checks" | "classify" | "match";
@@ -40,19 +40,19 @@ export function RowsTable({ view, lang, marks, busy, accepted }: Props) {
     const flagged = a && !fixed && marks.has(`anom:${a.id}`) && ((view === "checks" && a.id !== "protein") || (view === "match" && a.id === "protein"));
     const out = scoped && !s.inPt;
     const cls = [out ? "out" : "", flagged ? "flag" : ""].join(" ");
-    const name = <td><span className="pn" title={r.product_name}>{r.till_label}</span></td>;
+    const name = <td><span className="pn" title={productName(p, lang)}>{tillLabel(p, lang)}</span></td>;
 
     if (view === "raw") return (
       <tr key={i} className={cls}>
         <td className="mono">{r.ean}</td>
-        <td><span className="pn" title={r.till_label}>{r.product_name}</span></td>
+        <td><span className="pn" title={tillLabel(p, lang)}>{productName(p, lang)}</span></td>
         <td>{r.brand}</td>
         <td>{dept(r.department, lang)}</td>
         {v(r.net_weight_kg, (x) => `${fmtNum(Number(x), lang, 3)} kg`)}
         {v(r.energy_kcal_100g, dec)}
         {v(r.protein_g_100g, dec)}
         <td className="num">{fmtInt(Number(r.units_sold_12m), lang)}</td>
-        {v(r.ingredients, (x) => <span className="chip ghosted">{fmtInt(x.length, lang)} chars</span>)}
+        {v(ingredients(p, lang), (x) => <span className="chip ghosted">{fmtInt(x.length, lang)} {lang === "fr" ? "caractères" : "chars"}</span>)}
       </tr>
     );
 
@@ -122,7 +122,7 @@ export function RowsTable({ view, lang, marks, busy, accepted }: Props) {
   return (
     <div className="card tablecard">
       <div className="tscroll">
-        <table className="data">
+        <table className={`data v-${view}`}>
           <thead><tr>{head[view].map((h, i) => <th key={i}>{h}</th>)}</tr></thead>
           <tbody>{PRODUCTS.map(row)}</tbody>
         </table>

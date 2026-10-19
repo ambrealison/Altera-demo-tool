@@ -45,7 +45,8 @@ export interface Result {
   level: "A" | "B" | null;
 }
 
-export interface Product { raw: RawRow; res: Result }
+/** raw is the row of the English demo file; fr holds the texts of the French one. */
+export interface Product { raw: RawRow; fr: { till_label: string; product_name: string; ingredients: string }; res: Result }
 
 export type AnomalyId = "ean" | "weight" | "protein";
 export interface Anomaly {

@@ -14,6 +14,10 @@ export const COLUMNS = CAT.columns;
 /** Column names as each demo file spells them: the French file has French headers. */
 export const COLUMN_NAMES: Record<Lang, string[]> = { en: CAT.columns, fr: CAT.fr.columns };
 export const segment = (s: string, lang: Lang) => (lang === "fr" ? CAT.fr.segments[s] ?? s : s);
+/** A product's till label, name and ingredients, as the demo file of that language gives them. */
+export const tillLabel = (p: Product, lang: Lang) => (lang === "fr" ? p.fr.till_label : p.raw.till_label);
+export const productName = (p: Product, lang: Lang) => (lang === "fr" ? p.fr.product_name : p.raw.product_name);
+export const ingredients = (p: Product, lang: Lang) => (lang === "fr" ? p.fr.ingredients : p.raw.ingredients);
 export const PRODUCTS = CAT.products;
 export const ANOMALIES = CAT.anomalies;
 export const N = PRODUCTS.length;

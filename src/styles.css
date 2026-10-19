@@ -269,3 +269,4 @@ table.data td.wait { color: var(--faint); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
 }
+table.data.v-classify td .pn { max-width: 186px; }

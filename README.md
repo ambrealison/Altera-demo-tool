@@ -24,7 +24,8 @@ interface language.
 ## The data
 
 - **Products**: 30 real products with their real barcodes and nutrition values, from
-  Open Food Facts (ODbL), collected once into `scripts/off_snapshot.json`.
+  Open Food Facts (ODbL), collected once into `scripts/off_snapshot.json`. Labels, names and
+  ingredient lists exist in English and French; each interface language shows its own.
 - **Retailer**: Harbour Market is fictitious, and so are its departments and volumes.
 
 ## Commands
@@ -40,8 +41,8 @@ npm run deliverables   # rebuild the workbook, the CSV and the four PDFs
 
 | File | What it is |
 | --- | --- |
-| `HarbourMarket_Protein_Ratio_DEMO.xlsx` | 8 tabs, formula-driven, one input column (volumes). Every formula is recalculated with LibreOffice and compared with Python before the file is accepted. |
-| `HarbourMarket_products_DEMO.csv` | Line-level file: classes, contents, split, data level and the source of every value. |
+| `HarbourMarket_Protein_Ratio_DEMO.xlsx` | Altera's results file template (`scripts/assets/workbook_template.xlsx`: Welcome, Protein Tracker, WWF, By category, By department, By brand, By product, Data) filled with the 30 products. One input column, the volumes on Welcome. LibreOffice recalculates it; no error cell is allowed and the ratios are compared with Python. |
+| `HarbourMarket_products_DEMO.csv` | Line-level file: the Data tab's 30 columns, values computed. |
 | `HarbourMarket_Insights_Report_{EN,FR}.pdf` | Five 16:9 pages: scope, WWF, Protein Tracker, levers. |
 | `HarbourMarket_Scope_Statement_{EN,FR}.pdf` | One A4 page: scope covered, product-level approach, data used, volume assumptions. |
 

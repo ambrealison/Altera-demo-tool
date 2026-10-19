@@ -74,6 +74,7 @@ const SCEN = [
   { id: "plant", r: compute((p) => (["lentils", "tofu", "plant_mince"].includes(p.key) ? 2 : 1) * kgBase(p)), wwf: "fg1" },
 ];
 const key = (k) => P.find((p) => p.key === k);
+const till = (k, lang) => (lang === "fr" ? key(k).fr.till_label : key(k).raw.till_label);
 const protOf = (k) => (kgBase(key(k)) * key(k).res.prot) / 1e5;
 const fg1Animal = P.filter((p) => p.res.inWwf && p.res.wwf?.fg === "FG1" && p.res.wwf.origin === "animal");
 const count = (f, v) => IN_PT.filter((p) => p.res[f] === v).length;
@@ -139,13 +140,13 @@ function words(lang) {
       ],
       fixesTitle: fr ? "Trois anomalies, résolues avant le calcul" : "Three anomalies, resolved before the calculation",
       fixes: fr ? [
-        ["ACTIVIA NATURE 4X125G", "code-barres à la clé de contrôle fausse, retrouvé par son nom : le dernier chiffre était mal saisi."],
-        ["BARILLA SPAGHETTI N5 500G", "65 g de protéines déclarés pour 100 g : un chiffre par paquet. 13 g retenus, issus d'Open Food Facts."],
-        ["PRINGLES SOUR CREAM ONION 175G", "poids net manquant, lu sur le libellé caisse : 0,175 kg."],
+        [till("yogurt", lang), "code-barres à la clé de contrôle fausse, retrouvé par son nom : le dernier chiffre était mal saisi."],
+        [till("spaghetti", lang), "65 g de protéines déclarés pour 100 g : un chiffre par paquet. 13 g retenus, issus d'Open Food Facts."],
+        [till("pringles", lang), "poids net manquant, lu sur le libellé caisse : 0,175 kg."],
       ] : [
-        ["ACTIVIA NATURE 4X125G", "barcode with a wrong check digit, found by its name: the last digit was mistyped."],
-        ["BARILLA SPAGHETTI N5 500G", "65 g of protein declared per 100 g: a per-pack figure. 13 g kept, from Open Food Facts."],
-        ["PRINGLES SOUR CREAM ONION 175G", "net weight missing, read from the till label: 0.175 kg."],
+        [till("yogurt", lang), "barcode with a wrong check digit, found by its name: the last digit was mistyped."],
+        [till("spaghetti", lang), "65 g of protein declared per 100 g: a per-pack figure. 13 g kept, from Open Food Facts."],
+        [till("pringles", lang), "net weight missing, read from the till label: 0.175 kg."],
       ],
       takeaway: fr ? "Chaque chiffre de ce rapport se recalcule dans le classeur : une seule colonne à saisir, vos volumes."
         : "Every figure in this report recalculates in the workbook: one input column, your volumes.",
@@ -341,7 +342,7 @@ function statement(lang) {
       fr ? `<b>${P.length}</b> produits reçus dans le fichier catalogue de Harbour Market, ventes sur douze mois.` : `<b>${P.length}</b> products received in the Harbour Market catalogue file, sales over twelve months.`,
       fr ? `<b>WWF : ${nWwf} produits</b>, après la liste d'exclusion de l'Appendix A.` : `<b>WWF: ${nWwf} products</b>, after the Appendix A exclusion list.`,
       fr ? `<b>Protein Tracker : ${n} produits</b>, toute l'alimentation et les boissons.` : `<b>Protein Tracker: ${n} products</b>, all food and drink.`,
-    ]) + `<table><thead><tr><th>${fr ? "Hors périmètre" : "Out of scope"}</th><th>WWF</th><th>Protein Tracker</th><th>${fr ? "Motif" : "Reason"}</th></tr></thead><tbody>${out.map((p) => `<tr><td class="mono">${esc(p.raw.till_label)}</td><td>${fr ? "exclu" : "out"}</td><td>${p.res.inPt ? (fr ? "inclus" : "in") : (fr ? "exclu" : "out")}</td><td>${esc(why[p.res.excl])}</td></tr>`).join("")}</tbody></table>`),
+    ]) + `<table><thead><tr><th>${fr ? "Hors périmètre" : "Out of scope"}</th><th>WWF</th><th>Protein Tracker</th><th>${fr ? "Motif" : "Reason"}</th></tr></thead><tbody>${out.map((p) => `<tr><td class="mono">${esc(lang === "fr" ? p.fr.till_label : p.raw.till_label)}</td><td>${fr ? "exclu" : "out"}</td><td>${p.res.inPt ? (fr ? "inclus" : "in") : (fr ? "exclu" : "out")}</td><td>${esc(why[p.res.excl])}</td></tr>`).join("")}</tbody></table>`),
     sec(fr ? "2. Approche produit par produit" : "2. Product-level approach", li([
       fr ? "Chaque produit est classé individuellement, par son code-barres : produit simple ou composé, groupe d'aliments FG1 à FG7, origine végétale ou animale, sous-groupe ; les composés par catégorie (viande, produits de la mer, végétarien, végétalien)." : "Every product is classified individually, by its barcode: whole or composite, food group FG1 to FG7, plant or animal origin, sub-group; composites by category (meat-based, seafood-based, vegetarian, vegan).",
       fr ? `Sources de classement : base de référence Altera (${rt("reference")}), puis modèle de langage (${rt("model")}), chaque champ validé contre le vocabulaire autorisé.` : `Classification sources: Altera reference base (${rt("reference")}), then the language model (${rt("model")}), every field validated against the allowed vocabulary.`,
@@ -356,7 +357,7 @@ function statement(lang) {
     sec(fr ? "4. Hypothèses de volumes" : "4. Volume assumptions", li([
       fr ? "Volumes réels fournis par le distributeur : unités vendues aux consommateurs sur douze mois. Aucun volume estimé." : "Real volumes supplied by the retailer: consumer units sold over twelve months. No volume estimated.",
       fr ? `Masse vendue = unités × poids net qualifié : ${t(R.mass, lang, 0)} sur le périmètre Protein Tracker. Un poids net manquant a été lu sur le libellé caisse (0,175 kg).` : `Mass sold = units × qualified net weight: ${t(R.mass, lang, 0)} on the Protein Tracker scope. One missing net weight was read from the till label (0.175 kg).`,
-      fr ? "Corrections acceptées avant calcul : un code-barres mal saisi, un poids net manquant, une teneur saisie par paquet. Chacune figure dans l'onglet Corrections du classeur." : "Corrections accepted before calculation: one mistyped barcode, one missing net weight, one content entered per pack. Each is listed on the Corrections tab of the workbook.",
+      fr ? "Corrections acceptées avant calcul : un code-barres mal saisi, un poids net manquant, une teneur saisie par paquet. Le classeur porte les valeurs corrigées, et l'onglet Data la source de chaque teneur." : "Corrections accepted before calculation: one mistyped barcode, one missing net weight, one content entered per pack. The workbook carries the corrected values, and its Data tab the source of every content.",
       fr ? "Hypothèses de travail ouvertes : aucune." : "Open working assumptions: none.",
     ])),
   ].join("");

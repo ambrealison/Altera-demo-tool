@@ -18,7 +18,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SNAP = json.loads((ROOT / "scripts" / "off_snapshot.json").read_text())
 
-# key: till label, display name, brand, department, segment, net weight (kg), units sold over 12 months
+# key: till label and display name in French (the French file), brand, department, segment, net weight (kg), units sold over 12 months
 ROWS = [
     ("beef_mince", "CHARAL STK HACHE 5%MG 2X130G", "Steaks hachés 5% MG, 2 × 130 g", "Charal", "Butchery", "Minced beef", 0.26, 186000),
     ("chicken", "LE GAULOIS FILET POULET 300G", "Filet de poulet, 300 g", "Le Gaulois", "Poultry", "Chicken", 0.30, 142000),
@@ -51,6 +51,64 @@ ROWS = [
     ("beer", "HEINEKEN BIERE 33CL", "Heineken, 33 cl", "Heineken", "Beer & wine", "Beer", 0.33, 180000),
     ("lotus", "LOTUS PQ AQUA TUBE X12", "Papier toilette Aqua Tube, 12 rouleaux", "Lotus", "Household", "Paper", None, 64000),
 ]
+
+# the English demo file: the same products as an English-speaking retailer would list them
+EN = {
+    "beef_mince": ("CHARAL BEEF PATTIES 5%FAT 2X130G", "Minced beef patties 5% fat, 2 × 130 g"),
+    "chicken": ("LE GAULOIS CHICKEN FILLET 300G", "Chicken breast fillets, 300 g"),
+    "ham": ("HERTA LE BON PARIS COOKED HAM X4", "Le Bon Paris cooked ham, 4 slices"),
+    "tuna": ("PETIT NAVIRE TUNA IN BRINE 160G", "Whole tuna in brine, 160 g"),
+    "eggs": ("LOUE 6 FREE RANGE EGGS LR LARGE", "6 free-range eggs, Label Rouge"),
+    "camembert": ("PRESIDENT CAMEMBERT 250G", "Camembert, 250 g"),
+    "yogurt": ("ACTIVIA NATURAL YOGURT 4X125G", "Activia natural yogurt, 4 × 125 g"),
+    "milk": ("LACTEL SEMI SKIMMED MILK 1L", "Matin Léger semi-skimmed milk, 1 L"),
+    "butter": ("PAYSAN BRETON UNSALTED BUTTER 250G", "Unsalted butter, 250 g"),
+    "oil": ("LESIEUR SUNFLOWER OIL 1L", "Cœur de Tournesol sunflower oil, 1 L"),
+    "lentils": ("BONDUELLE STEAMED LENTILS 265G", "Steamed lentils, 265 g"),
+    "plant_mince": ("GARDEN GOURMET SOY MINCE 200G", "Sensational soy mince, 200 g"),
+    "tofu": ("TAIFUN JAPANESE TOFU FILLETS 160G", "Japanese-style tofu fillets, 160 g"),
+    "almonds": ("SEEBERGER ROASTED ALMONDS 150G", "Roasted almonds, 150 g"),
+    "soy_drink": ("ALPRO SOY NO SUGARS 1L", "Soy drink, no sugars, 1 L"),
+    "oat_drink": ("OATLY BARISTA OAT DRINK 1L", "Barista oat drink, 1 L"),
+    "peas": ("D AUCY EXTRA FINE PEAS 280G", "Extra fine garden peas, 280 g"),
+    "compote": ("ANDROS APPLE COMPOTE 730G", "Apple compote, 730 g"),
+    "spaghetti": ("BARILLA SPAGHETTI N5 500G", "Spaghetti n°5, 500 g"),
+    "bread": ("HARRYS WHITE SANDWICH BREAD 500G", "Crustless white sandwich bread, 500 g"),
+    "oats": ("QUAKER ROLLED OATS 800G", "Rolled oats, 800 g"),
+    "mash": ("MOUSLINE INSTANT MASH 4X130G", "Instant mashed potato, plain, 4 × 130 g"),
+    "pringles": ("PRINGLES SOUR CREAM ONION 175G", "Pringles Sour Cream & Onion, 175 g"),
+    "nutella": ("NUTELLA HAZELNUT SPREAD 400G", "Nutella hazelnut spread, 400 g"),
+    "lays": ("LAYS READY SALTED CRISPS 155G", "Ready salted crisps, 155 g"),
+    "lasagne": ("MARIE BEEF LASAGNE 300G", "Beef lasagne bolognese, 300 g"),
+    "pizza": ("BUITONI FRAICHUP 4 CHEESE 600G", "Fraîch'Up four-cheese pizza, 600 g"),
+    "cola": ("COCA COLA ORIGINAL CAN 33CL", "Coca-Cola Original, 33 cl"),
+    "beer": ("HEINEKEN LAGER 33CL", "Heineken lager, 33 cl"),
+    "lotus": ("LOTUS TOILET TISSUE AQUA TUBE X12", "Aqua Tube toilet tissue, 12 rolls"),
+}
+ING_EN = {
+    "ham": "Fresh pork ham, salt, dextrose, stock (water, salt, pork rind, onion, carrot, pork meat and bones, spices and herbs, garlic), antioxidant: sodium erythorbate, preservative: sodium nitrite.",
+    "yogurt": "Partially skimmed MILK 3.2% fat (98.5%), concentrated or powdered skimmed MILK, cultures (including yogurt cultures and Bifidobacterium (MILK)). MILK: origin France",
+    "lentils": "Soaked dried [green] lentils, water, salt, firming agent: calcium chloride. May contain WHEAT",
+    "plant_mince": "Water, SOY protein concentrate 23.5%, vegetable oils (rapeseed, coconut), acidity regulator: buffered vinegar; stabiliser: methylcellulose; flavourings, vegetable concentrates (beetroot, apple, carrot, hibiscus), salt, BARLEY malt extract, garlic powder, onion powder, black pepper, SOY sauce (SOY, WHEAT, salt). May contain: EGGS.",
+    "tofu": "Tofu* 94% (soya beans* 55%, water, coagulants: magnesium chloride, calcium sulphate), sunflower oil*, vegetable stock (sea salt, yeast extract*, sunflower oil*, leeks*, carrots*, celery*, mace*, nutmeg*, parsley*), concentrated lemon juice*.",
+    "soy_drink": "Soya base (98.8%) [water, hulled soya beans (8.7%)], acidity regulators (potassium phosphates), calcium (calcium carbonate), flavourings, sea salt, stabiliser (gellan gum), vitamin B2, vitamin B12, vitamin D2.",
+    "oat_drink": "Water, oats 10%, rapeseed oil, acidity regulator (dipotassium phosphate), minerals (calcium carbonate, potassium iodide), salt, vitamins (D2, riboflavin and B12).",
+    "compote": "Apples (purée and concentrated purée) 99.9%, concentrated acerola juice",
+    "spaghetti": "Durum WHEAT semolina. May contain traces of SOY and MUSTARD.",
+    "bread": "WHEAT flour 63%, water, sugar, rapeseed oil, salt, vinegar, yeast, broad bean flour, WHEAT gluten, flavouring (contains alcohol), acerola extract. May contain traces of EGG, SOY, MILK, NUTS and SESAME SEEDS.",
+    "pringles": "Dehydrated potatoes, vegetable oils (sunflower, maize), rice flour, WHEAT starch, maize flour, sour cream and onion seasoning (WHEAT starch, flavour enhancers {monosodium glutamate, disodium guanylate, disodium inosinate}, onion powder, maltodextrin, salt, dextrose, sugar, sweet whey powder {MILK}, potato starch, modified maize starch, acids {citric acid, lactic acid, malic acid}, sour cream powder {MILK}, flavourings {MILK}, yeast extract, glucose syrup, MILK protein, rice flour), emulsifier (E471), maltodextrin, salt, colour (annatto).",
+    "nutella": "Sugar, palm oil, HAZELNUTS 13%, fat-reduced cocoa 7.4%, skimmed MILK powder 6.6%, WHEY powder, emulsifiers: lecithins (SOY), vanillin. Gluten free.",
+    "lays": "Potatoes (66%), vegetable oils (sunflower, rapeseed, maize in varying proportions), salt",
+    "lasagne": "Béchamel 33% (water, crème fraîche, skimmed milk powder, maize starch, wheat flour, salt, virgin olive oil, nutmeg), cooked fresh lasagne sheets 17.5% (water, durum wheat semolina), water, beef from France 9.1%, double tomato concentrate 5.9%, tomato pulp in juice 5.9% (tomatoes, tomato juice), cooked beef from France 4.8%, onions, emmental 2.7%, vegetable stock [vegetables and vegetable cooking juices (tomatoes, onions, peppers, grilled aubergines, garlic, courgettes), virgin olive oil, salt, pepper], basil 0.8%, Dijon mustard (water, mustard seeds, spirit vinegar, salt), maize starch, garlic, salt, oregano, pepper.",
+    "cola": "Carbonated water; sugar; colour: E150d; acid: phosphoric acid; natural flavourings; caffeine flavouring.",
+    "beer": "Water, barley malt, hop extracts, alcohol.",
+}
+# Open Food Facts lists these two in English only: the French file gets them in French
+ING_FR = {
+    "soy_drink": "Base de soja (98,8 %) [eau, graines de soja décortiquées (8,7 %)], correcteurs d'acidité (phosphates de potassium), calcium (carbonate de calcium), arômes, sel marin, stabilisant (gomme gellane), vitamine B2, vitamine B12, vitamine D2.",
+    "oat_drink": "Eau, avoine 10 %, huile de colza, correcteur d'acidité (phosphate dipotassique), minéraux (carbonate de calcium, iodure de potassium), sel, vitamines (D2, riboflavine et B12).",
+}
+assert set(EN) == {r[0] for r in ROWS}
 
 W = lambda struct, fg=None, sub=None, origin=None, cat=None: {"struct": struct, "fg": fg, "sub": sub, "origin": origin, "cat": cat}
 # key: route, confidence, WWF classification (None when excluded), PT class, protein source, protein used, split method, plant share of protein, matched food
@@ -102,15 +160,16 @@ for i, (key, till, name, brand, dept, seg, weight, units) in enumerate(ROWS):
     s = SNAP[key]
     eng = ENGINE.get(key)
     declared = eng is not None and eng[4] == "declared"
+    ing_fr = "" if key in NO_INGREDIENTS else ING_FR.get(key, (s["ingredients"] or "").replace("\n", " ").replace("_", ""))
     raw = {
         "ean": WRONG_EAN.get(key, s["code"]),
-        "till_label": till,
-        "product_name": name,
+        "till_label": EN[key][0],
+        "product_name": EN[key][1],
         "brand": brand,
         "department": dept,
         "segment": seg,
         "net_weight_kg": "" if key in MISSING_WEIGHT or weight is None else fmt(weight),
-        "ingredients": "" if key in NO_INGREDIENTS else (s["ingredients"] or "").replace("\n", " ").replace("_", ""),
+        "ingredients": "" if key in NO_INGREDIENTS else ING_EN[key],
         "energy_kcal_100g": fmt(round(s["kcal"], 1)) if (declared or key in WRONG_PROTEIN) and s["kcal"] is not None else "",
         "fat_g_100g": fmt(s["fat"]) if (declared or key in WRONG_PROTEIN) else "",
         "carbs_g_100g": fmt(s["carbs"]) if (declared or key in WRONG_PROTEIN) else "",
@@ -130,7 +189,8 @@ for i, (key, till, name, brand, dept, seg, weight, units) in enumerate(ROWS):
                "plant": plant, "split": split, "level": None if split == "zero" else ("B" if split == "convention" else "A")}
         if key in EXCL: res["excl"] = EXCL[key]
         if matched: res["matched"] = matched
-    products.append({"key": key, "raw": raw, "res": res})
+    assert bool(raw["ingredients"]) == bool(ing_fr), key
+    products.append({"key": key, "raw": raw, "fr": {"till_label": till, "product_name": name, "ingredients": ing_fr}, "res": res})
     if key in WRONG_EAN: anomalies.append({"id": "ean", "row": i, "from": WRONG_EAN[key], "to": s["code"]})
     if key in MISSING_WEIGHT: anomalies.append({"id": "weight", "row": i, "from": "", "to": fmt(weight)})
     if key in WRONG_PROTEIN: anomalies.append({"id": "protein", "row": i, "from": fmt(WRONG_PROTEIN[key]), "to": fmt(s["protein"])})
@@ -162,9 +222,10 @@ SEG_FR = {"Minced beef": "Viande hachée", "Chicken": "Poulet", "Cooked ham": "J
           "Pizzas": "Pizzas", "Soft drinks": "Sodas", "Beer": "Bières", "Paper": "Papier"}
 NUMERIC = {"net_weight_kg", "energy_kcal_100g", "fat_g_100g", "carbs_g_100g", "protein_g_100g"}
 
-def french(raw: dict) -> dict:
+def french(raw: dict, fr: dict) -> dict:
     out = {}
     for k, v in raw.items():
+        if k in fr: v = fr[k]
         if k == "department": v = DEPT_FR[v]
         elif k == "segment": v = SEG_FR[v]
         elif k in NUMERIC: v = v.replace(".", ",")
@@ -175,7 +236,7 @@ cols = list(raws[0].keys())
 demo = ROOT / "public" / "demo"
 demo.mkdir(parents=True, exist_ok=True)
 for name, rows, fields, delim in (("harbour_market_catalogue.csv", raws, cols, ","),
-                                  ("catalogue_harbour_market.csv", [french(r) for r in raws], [COLS_FR[c] for c in cols], ";")):
+                                  ("catalogue_harbour_market.csv", [french(r, p["fr"]) for r, p in zip(raws, products)], [COLS_FR[c] for c in cols], ";")):
     buf = io.StringIO()
     w = csv.DictWriter(buf, fieldnames=fields, delimiter=delim, lineterminator="\n")
     w.writeheader(); w.writerows(rows)
