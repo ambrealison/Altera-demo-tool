@@ -1,0 +1,26 @@
+{
+  "name": "altera-demo-tool",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --port 4174",
+    "deliverables": "python3 scripts/build_workbook.py && node scripts/build_documents.mjs"
+  },
+  "dependencies": {
+    "@fontsource/archivo": "^5.3.0",
+    "@fontsource/inter": "^5.3.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "puppeteer-core": "^24.43.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4"
+  }
+}

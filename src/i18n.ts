@@ -1,0 +1,177 @@
+import type { Lang, PtClass, ProtSrc, Route } from "./types";
+
+export const fill = (s: string, v: Record<string, string | number>) => s.replace(/\{(\w+)\}/g, (_, k) => String(v[k] ?? `{${k}}`));
+
+export type StepId = "import" | "checks" | "classify" | "match" | "ratios" | "quality" | "deliver";
+export const STEP_IDS: StepId[] = ["import", "checks", "classify", "match", "ratios", "quality", "deliver"];
+
+const en = {
+  demo: "Demo",
+  fictitious: "Demo · fictitious retailer and volumes",
+  newProject: "New engagement",
+  project: "Harbour Market · Catalogue 2026",
+  reset: "Restart",
+  pipeline: "Pipeline",
+  narrow: ["A larger screen, please", "The Altera AI demo is built for a laptop or a projector."],
+  sideFoot: "Real products from Open Food Facts (ODbL). <b>Harbour Market</b>, its departments and its volumes are fictitious.",
+  log: "Engine log", live: "running", idle: "idle", logEmpty: "Waiting for a file.",
+  steps: {
+    import: { name: "Import", title: "Import the catalogue", desc: "Drop the retailer's export: one row per product, with the volumes sold over twelve months.", run: "", done: "Imported" },
+    checks: { name: "Data checks", title: "Check the file", desc: "Inventory of every column, barcode check digits, net weights, and the scope of each methodology.", run: "Run data checks", done: "Checks done" },
+    classify: { name: "Classification", title: "Classify every product", desc: "A WWF food group and a Protein Tracker class for each product: reference base first, then unanimous segments, then the language model.", run: "Classify {n} products", done: "Classified" },
+    match: { name: "Database matching", title: "Match protein and split", desc: "Protein per 100 g for every product, from your declared values, the Altera reference base, Open Food Facts, NEVO and CIQUAL; then the plant / animal split.", run: "Match databases", done: "Matched" },
+    ratios: { name: "Ratios", title: "Calculate both ratios", desc: "WWF in tonnes of product, then the Protein Tracker in tonnes of protein. Calculated separately, never merged.", run: "Calculate ratios", done: "Calculated" },
+    quality: { name: "Quality checks", title: "Check everything", desc: "Identities, methodology rules, data and workbook checks, then the control sample sealed for human review.", run: "Run quality checks", done: "All checks pass" },
+    deliver: { name: "Deliverables", title: "Produce the deliverables", desc: "The formula-driven workbook, the line-level file, the insights report and the WWF scope statement.", run: "Generate deliverables", done: "Ready" },
+  } as Record<StepId, { name: string; title: string; desc: string; run: string; done: string }>,
+  stepOf: "Step {n} of 7",
+  running: "Running", next: "Next step",
+  needs: "{n} to review",
+  // import
+  dropTitle: "Drop the catalogue CSV here",
+  dropText: "Comma-separated, UTF-8, one row per product. Nothing leaves this browser.",
+  browse: "Browse files",
+  expected: "Expected columns",
+  getFile: "Presenting? Download the demo file",
+  wrongFile: "This demo runs on the Harbour Market sample file only. Drop harbour_market_catalogue.csv.",
+  reading: "Reading the file",
+  asReceived: "The file as received",
+  rowsCols: "{r} rows · {c} columns",
+  emptyCell: "empty",
+  // checks
+  inventory: "Inventory · how complete each column is",
+  scope: "Scope",
+  received: "Rows received", ptScope: "Protein Tracker scope", wwfScope: "WWF scope",
+  cutNonFood: "non-food", cutAppendix: "Appendix A: soft drinks, alcohol",
+  toReview: "To review",
+  anomalies: {
+    ean: ["Barcode with a wrong check digit", "Matched by name in the Altera reference base: the last digit was mistyped."],
+    weight: ["Net weight missing", "Read from the till label."],
+    protein: ["Protein value does not add up", "Declared energy does not match 4 × protein + 9 × fat + 4 × carbohydrate: a per-pack figure entered as per 100 g. Value from Open Food Facts, by barcode."],
+  } as Record<string, [string, string]>,
+  accept: "Accept", accepted: "Accepted",
+  allResolved: "All anomalies resolved",
+  // classify
+  cols: { ean: "Barcode", product: "Product", brand: "Brand", dept: "Department", weight: "Net weight", units: "Units sold", route: "Source", wwf: "WWF", pt: "Protein Tracker", conf: "Confidence", prot: "Protein /100 g", psrc: "Value from", split: "Plant / animal", level: "Level" },
+  routes: { reference: "Reference base", segment: "Unanimous segment", model: "Language model" } as Record<Route, string>,
+  routeNotes: { reference: "already classified, found by barcode", segment: "all known products of the segment agree", model: "one product at a time, every field validated" } as Record<Route, string>,
+  classes: { animal_core: "Animal core", composite: "Composite", plant_non_core: "Plant-based non-core", plant_core: "Plant-based core" } as Record<PtClass, string>,
+  composite: "Composite", excludedA: "Appendix A", outScope: "out of scope", origin: { plant: "plant", animal: "animal" } as Record<string, string>,
+  cats: { meat_based: "meat-based", seafood_based: "seafood-based", vegetarian: "vegetarian", vegan: "vegan" } as Record<string, string>,
+  // match
+  sources: { declared: "Declared, checked", reference: "Altera reference base", off: "Open Food Facts", nevo: "NEVO", ciqual: "CIQUAL", median: "Segment median" } as Record<ProtSrc, string>,
+  sourceCounts: "Where the protein values come from",
+  splitCounts: "How the split was measured",
+  splits: { one_side: "Single origin", ingredients: "Ingredient list", nevo: "NEVO table", convention: "50/50 convention", zero: "No protein" } as Record<string, string>,
+  // ratios
+  wwfFg1: "Plant share of protein-rich foods (FG1)", wwfFg2: "Plant share of dairy (FG2)", wwfDiet: "Plant share of the whole diet", ptRatio: "Plant share of all protein sold",
+  phd: "Planetary Health Diet: {v}", unitWwf: "tonnes of product, dairy equivalents", unitPt: "tonnes of protein",
+  levelA: "Level A: {v} of protein",
+  byClass: "Protein Tracker · by class", byGroup: "WWF · by food group", byDept: "Protein Tracker · by department",
+  plant: "Plant", animal: "Animal",
+  // quality
+  checkGroups: [
+    ["Identities", [["Plant + animal = total, row by row", "{n} rows"], ["Each total equals the sum of its block", "every table"], ["Every table covers every value of its column", "no value left out"]]],
+    ["Methodology", [["No food group on a WWF composite", "rule held"], ["Sub-groups only in FG1, FG2, FG3, FG5", "rule held"], ["×10 dairy factor on cheese only", "1 cheese"]]],
+    ["Data", [["Energy balance of declared values", "1 value replaced"], ["Every value has a source", "{n} of {n}"]]],
+    ["Workbook", [["Every formula recomputed outside Excel", "all match"], ["Every tab evaluated in a spreadsheet", "8 tabs"]]],
+  ] as [string, [string, string][]][],
+  sample: "Control sample", sampleText: "500 rows at random, the 500 largest products in tonnes of protein and the 3 best sellers of every category: on a catalogue this size, every row. Sealed before review, reviewed by hand, one accuracy rate per field.",
+  sealed: "Sealed for human review",
+  // deliver
+  files: [
+    ["Workbook", "XLSX · formula-driven, one input: your volumes"],
+    ["Line-level file", "CSV · classes, contents, split, level and the source of every value"],
+    ["Insights report", "PDF · where the ratio comes from, what would move it"],
+    ["Scope statement", "PDF · required by WWF, Appendix A tab 6"],
+  ] as [string, string][],
+  building: "Building", download: "Download",
+  ctaTitle: "Your catalogue next.", ctaText: "The same pipeline, on your real data, under NDA.", cta: "Plan a meeting",
+};
+type Dict = typeof en;
+
+const fr: Dict = {
+  demo: "Démo",
+  fictitious: "Démo · distributeur et volumes fictifs",
+  newProject: "Nouvelle mission",
+  project: "Harbour Market · Catalogue 2026",
+  reset: "Recommencer",
+  pipeline: "Étapes",
+  narrow: ["Un écran plus grand, s'il vous plaît", "La démo Altera AI est conçue pour un ordinateur ou un vidéoprojecteur."],
+  sideFoot: "Vrais produits issus d'Open Food Facts (ODbL). <b>Harbour Market</b>, ses rayons et ses volumes sont fictifs.",
+  log: "Journal du moteur", live: "en cours", idle: "en attente", logEmpty: "En attente d'un fichier.",
+  steps: {
+    import: { name: "Import", title: "Importer le catalogue", desc: "Déposez l'export du distributeur : une ligne par produit, avec les volumes vendus sur douze mois.", run: "", done: "Importé" },
+    checks: { name: "Contrôles du fichier", title: "Contrôler le fichier", desc: "Inventaire de chaque colonne, clés de contrôle des codes-barres, poids nets, et périmètre de chaque méthodologie.", run: "Lancer les contrôles", done: "Contrôles faits" },
+    classify: { name: "Classification", title: "Classer chaque produit", desc: "Un groupe d'aliments WWF et une classe Protein Tracker par produit : d'abord la base de référence, puis les segments unanimes, puis le modèle de langage.", run: "Classer {n} produits", done: "Classés" },
+    match: { name: "Rapprochement des bases", title: "Rapprocher protéines et partage", desc: "Une teneur pour 100 g par produit, issue de vos valeurs déclarées, de la base de référence Altera, d'Open Food Facts, de NEVO et de CIQUAL ; puis le partage végétal / animal.", run: "Rapprocher les bases", done: "Rapprochés" },
+    ratios: { name: "Ratios", title: "Calculer les deux ratios", desc: "WWF en tonnes de produit, puis le Protein Tracker en tonnes de protéines. Calculés séparément, jamais fusionnés.", run: "Calculer les ratios", done: "Calculés" },
+    quality: { name: "Contrôles qualité", title: "Tout contrôler", desc: "Identités, règles de méthode, contrôles des données et du classeur, puis l'échantillon scellé pour relecture humaine.", run: "Lancer les contrôles qualité", done: "Tous les contrôles passent" },
+    deliver: { name: "Livrables", title: "Produire les livrables", desc: "Le classeur tout en formules, le fichier ligne à ligne, le rapport d'analyse et la déclaration de périmètre WWF.", run: "Générer les livrables", done: "Prêts" },
+  },
+  stepOf: "Étape {n} sur 7",
+  running: "En cours", next: "Étape suivante",
+  needs: "{n} à valider",
+  dropTitle: "Déposez le CSV du catalogue ici",
+  dropText: "Séparateur virgule, UTF-8, une ligne par produit. Rien ne quitte ce navigateur.",
+  browse: "Parcourir",
+  expected: "Colonnes attendues",
+  getFile: "Vous présentez ? Téléchargez le fichier de démo",
+  wrongFile: "Cette démo fonctionne uniquement sur le fichier d'exemple Harbour Market. Déposez harbour_market_catalogue.csv.",
+  reading: "Lecture du fichier",
+  asReceived: "Le fichier tel que reçu",
+  rowsCols: "{r} lignes · {c} colonnes",
+  emptyCell: "vide",
+  inventory: "Inventaire · remplissage de chaque colonne",
+  scope: "Périmètre",
+  received: "Lignes reçues", ptScope: "Périmètre Protein Tracker", wwfScope: "Périmètre WWF",
+  cutNonFood: "non-alimentaire", cutAppendix: "Appendix A : sodas, alcool",
+  toReview: "À valider",
+  anomalies: {
+    ean: ["Code-barres à la clé de contrôle fausse", "Retrouvé par son nom dans la base de référence Altera : le dernier chiffre était mal saisi."],
+    weight: ["Poids net manquant", "Lu sur le libellé caisse."],
+    protein: ["Teneur en protéines incohérente", "L'énergie déclarée ne correspond pas à 4 × protéines + 9 × lipides + 4 × glucides : un chiffre par paquet saisi pour 100 g. Valeur d'Open Food Facts, par code-barres."],
+  },
+  accept: "Accepter", accepted: "Accepté",
+  allResolved: "Toutes les anomalies sont résolues",
+  cols: { ean: "Code-barres", product: "Produit", brand: "Marque", dept: "Rayon", weight: "Poids net", units: "Unités vendues", route: "Source", wwf: "WWF", pt: "Protein Tracker", conf: "Confiance", prot: "Protéines /100 g", psrc: "Valeur issue de", split: "Végétal / animal", level: "Niveau" },
+  routes: { reference: "Base de référence", segment: "Segment unanime", model: "Modèle de langage" },
+  routeNotes: { reference: "déjà classé, retrouvé par code-barres", segment: "tous les produits connus du segment s'accordent", model: "un produit à la fois, chaque champ validé" },
+  classes: { animal_core: "Animal core", composite: "Composite", plant_non_core: "Plant-based non-core", plant_core: "Plant-based core" },
+  composite: "Composite", excludedA: "Appendix A", outScope: "hors périmètre", origin: { plant: "végétal", animal: "animal" },
+  cats: { meat_based: "viande", seafood_based: "produits de la mer", vegetarian: "végétarien", vegan: "végétalien" },
+  sources: { declared: "Déclarée, contrôlée", reference: "Base de référence Altera", off: "Open Food Facts", nevo: "NEVO", ciqual: "CIQUAL", median: "Médiane du segment" },
+  sourceCounts: "D'où viennent les teneurs",
+  splitCounts: "Comment le partage a été mesuré",
+  splits: { one_side: "Une seule origine", ingredients: "Liste d'ingrédients", nevo: "Table NEVO", convention: "Convention 50/50", zero: "Sans protéines" },
+  wwfFg1: "Part végétale des aliments protéiques (FG1)", wwfFg2: "Part végétale des laitiers (FG2)", wwfDiet: "Part végétale de l'alimentation entière", ptRatio: "Part végétale des protéines vendues",
+  phd: "Planetary Health Diet : {v}", unitWwf: "tonnes de produit, équivalents lait", unitPt: "tonnes de protéines",
+  levelA: "Niveau A : {v} des protéines",
+  byClass: "Protein Tracker · par classe", byGroup: "WWF · par groupe d'aliments", byDept: "Protein Tracker · par rayon",
+  plant: "Végétal", animal: "Animal",
+  checkGroups: [
+    ["Identités", [["Végétal + animal = total, ligne à ligne", "{n} lignes"], ["Chaque total égale la somme de son bloc", "chaque tableau"], ["Chaque tableau couvre toutes les valeurs de sa colonne", "aucune valeur oubliée"]]],
+    ["Méthodologie", [["Pas de groupe sur un composite WWF", "règle respectée"], ["Sous-groupes seulement en FG1, FG2, FG3, FG5", "règle respectée"], ["Facteur laitier ×10 sur le fromage seulement", "1 fromage"]]],
+    ["Données", [["Bilan énergétique des valeurs déclarées", "1 valeur remplacée"], ["Chaque valeur a une source", "{n} sur {n}"]]],
+    ["Classeur", [["Chaque formule recalculée hors d'Excel", "toutes concordent"], ["Chaque onglet évalué dans un tableur", "8 onglets"]]],
+  ],
+  sample: "Échantillon de contrôle", sampleText: "500 lignes au hasard, les 500 plus gros produits en tonnes de protéines et les 3 meilleures ventes de chaque catégorie : sur un catalogue de cette taille, toutes les lignes. Scellé avant relecture, relu à la main, un taux d'exactitude par champ.",
+  sealed: "Scellé pour relecture humaine",
+  files: [
+    ["Classeur", "XLSX · tout en formules, une seule saisie : vos volumes"],
+    ["Fichier ligne à ligne", "CSV · classes, teneurs, partage, niveau et source de chaque valeur"],
+    ["Rapport d'analyse", "PDF · d'où vient le ratio, ce qui le ferait bouger"],
+    ["Déclaration de périmètre", "PDF · exigée par WWF, Appendix A onglet 6"],
+  ],
+  building: "Création", download: "Télécharger",
+  ctaTitle: "À votre catalogue.", ctaText: "Le même pipeline, sur vos vraies données, sous NDA.", cta: "Planifier un échange",
+};
+
+export const T: Record<Lang, Dict> = { en, fr };
+
+export const DEPT_FR: Record<string, string> = {
+  Butchery: "Boucherie", Poultry: "Volaille", Deli: "Charcuterie", Fish: "Poissonnerie", Eggs: "Œufs", Dairy: "Crèmerie", Cheese: "Fromages",
+  Grocery: "Épicerie", "Plant-based": "Végétal", "Fruit & vegetables": "Fruits et légumes", Bakery: "Boulangerie", Breakfast: "Petit-déjeuner",
+  Snacks: "Biscuits et snacks", "Ready meals": "Plats préparés", Frozen: "Surgelés", Drinks: "Boissons", "Beer & wine": "Bières et vins", Household: "Droguerie",
+};
+export const dept = (d: string, lang: Lang) => (lang === "fr" ? DEPT_FR[d] ?? d : d);
