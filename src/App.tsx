@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import type { AnomalyId, Lang } from "./types";
-import { STEP_IDS, T, dept, fill, type StepId } from "./i18n";
-import { ANOMALIES, BOOKING_URL, COLUMN_NAMES, DEMO_FILES, DOWNLOADS, IN_PT, N, PHD, PRODUCTS, PT_CLASSES, RESULTS, FOOD_GROUPS, delimiterOf, fmtNum, fmtPct, isDemoFile, tillLabel } from "./data";
+import type { AnomalyId, Decision, Decisions, Lang } from "./types";
+import { STEP_IDS, T, fill, type StepId } from "./i18n";
+import { ANOMALIES, ANOMALY_ORDER, BOOKING_URL, COLUMN_NAMES, DEMO_FILES, IN_PT, N, PHD, PRODUCTS, PT_CLASSES, PT_SUBS, FOOD_GROUPS, delimiterOf, downloads, fmtNum, fmtPct, isDemoFile, productsFor, resultsFor, tillLabel } from "./data";
 import { useRunner, type Line } from "./runner";
 import { CHECK_COUNT, CROSS, DELIVER_TOTAL, FILE_WINDOWS, FILL, checksScript, classifyScript, deliverScript, importScript, matchScript, qualityScript, ratiosScript, type Script } from "./engine";
 import { RowsTable } from "./Table";
 
 type Status = "locked" | "ready" | "running" | "attention" | "done";
 const INITIAL: Record<StepId, Status> = { import: "ready", checks: "locked", classify: "locked", match: "locked", ratios: "locked", quality: "locked", deliver: "locked" };
-const STEP_ANOMALIES: Partial<Record<StepId, AnomalyId[]>> = { checks: ["ean", "weight"], match: ["protein"] };
+const STEP_ANOMALIES: Partial<Record<StepId, AnomalyId[]>> = { checks: ["ingredients", "weight"], match: ["protein"] };
 const CLASS_COLOR = { animal_core: "var(--animal)", composite: "var(--comp)", plant_non_core: "var(--plant-2)", plant_core: "var(--plant)" } as const;
 
 const Ico = ({ d, size = 18 }: { d: string; size?: number }) => (
@@ -17,6 +17,7 @@ const Ico = ({ d, size = 18 }: { d: string; size?: number }) => (
 const I = {
   upload: "M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3",
   check: "M5 12.5l4.2 4.2L19 7",
+  cross: "M6 6l12 12M18 6L6 18",
   sheet: "M4 5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1zM4 10h16M4 15h16M10 4v16",
   table: "M4 6h16M4 12h16M4 18h16M8 6v12",
   report: "M7 3h7l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM14 3v5h5M9 17v-3M12 17v-6M15 17v-2",
@@ -25,12 +26,13 @@ const I = {
   arrow: "M5 12h14M13 6l6 6-6 6",
   download: "M12 4v12M7 11l5 5 5-5M5 20h14",
 };
+const short = (s: string, n = 28) => (s.length > n ? `${s.slice(0, n).trimEnd()}…` : s);
 
 export default function App() {
   const [lang, setLang] = useState<Lang>(() => (new URLSearchParams(location.search).get("lang") === "fr" ? "fr" : "en"));
   const [status, setStatus] = useState(INITIAL);
   const [view, setView] = useState<StepId>("import");
-  const [accepted, setAccepted] = useState<Set<AnomalyId>>(new Set());
+  const [decisions, setDecisions] = useState<Decisions>({});
   const [fileError, setFileError] = useState(false);
   const [fileName, setFileName] = useState("");
   const run = useRunner();
@@ -52,18 +54,24 @@ export default function App() {
     run.play(script.events, script.total, () => finish(step));
   };
 
-  const accept = (id: AnomalyId) => {
+  /** The presenter accepts the proposed correction, or declines it and keeps the value as received. */
+  const decide = (id: AnomalyId, d: Decision) => {
     const a = ANOMALIES.find((x) => x.id === id)!;
     const p = PRODUCTS[a.row];
     const fr = lang === "fr";
-    const text = id === "ean" ? (fr ? `ligne ${a.row + 1} : code-barres corrigé en ${a.to} (accepté)` : `row ${a.row + 1}: barcode corrected to ${a.to} (accepted)`)
-      : id === "weight" ? (fr ? `ligne ${a.row + 1} : poids net fixé à ${fmtNum(Number(a.to), lang, 3)} kg, lu sur le libellé caisse (accepté)` : `row ${a.row + 1}: net weight set to ${a.to} kg, from the till label (accepted)`)
-      : (fr ? `${tillLabel(p, lang)} : ${fmtNum(Number(a.to), lang, 1)} g retenus, issus d'Open Food Facts (accepté)` : `${tillLabel(p, lang)}: ${a.to} g kept, from Open Food Facts (accepted)`);
-    run.say(id === "protein" ? "off" : id, text);
-    const next = new Set(accepted).add(id);
-    setAccepted(next);
+    const row = `${fr ? "ligne" : "row"} ${a.row + 1} ${tillLabel(p, lang)}`;
+    const text = d === "accepted"
+      ? (id === "ingredients" ? (fr ? `${row} : liste d'ingrédients remplacée par celle du code-barres (accepté)` : `${row}: ingredient list replaced by the one found by barcode (accepted)`)
+        : id === "weight" ? (fr ? `${row} : poids net fixé à ${fmtNum(Number(a.to), lang, 3)} kg, lu sur le libellé caisse (accepté)` : `${row}: net weight set to ${a.to} kg, from the till label (accepted)`)
+        : (fr ? `${tillLabel(p, lang)} : ${fmtNum(Number(a.to), lang, 1)} g retenus, issus d'Open Food Facts (accepté)` : `${tillLabel(p, lang)}: ${a.to} g kept, from Open Food Facts (accepted)`))
+      : (id === "ingredients" ? (fr ? `${row} : liste d'ingrédients conservée telle que reçue (refusé), à confirmer avec le distributeur` : `${row}: ingredient list kept as received (declined), to confirm with the retailer`)
+        : id === "weight" ? (fr ? `${row} : pas de poids net, le produit n'entre pas dans les tonnes (refusé)` : `${row}: no net weight, the product is left out of the tonnes (declined)`)
+        : (fr ? `${tillLabel(p, lang)} : ${a.from} g conservés tels que déclarés (refusé), à confirmer avec le distributeur` : `${tillLabel(p, lang)}: ${a.from} g kept as declared (declined), to confirm with the retailer`));
+    run.say(id === "protein" ? "declared" : id === "weight" ? "weight" : "file", text, d === "declined");
+    const next = { ...decisions, [id]: d };
+    setDecisions(next);
     for (const [step, ids] of Object.entries(STEP_ANOMALIES) as [StepId, AnomalyId[]][]) {
-      if (ids.includes(id) && ids.every((x) => next.has(x))) {
+      if (ids.includes(id) && ids.every((x) => next[x])) {
         const nx = nextOf(step);
         set({ [step]: "done", ...(nx ? { [nx]: "ready" } : {}) });
       }
@@ -72,28 +80,31 @@ export default function App() {
 
   const onFile = async (f: File) => {
     const text = await f.text();
-    if (!isDemoFile(text)) { setFileError(true); run.say("warn", lang === "fr" ? `${f.name} : ce n'est pas le fichier de démo, refusé` : `${f.name}: not the demo file, rejected`, true); return; }
+    if (!isDemoFile(text)) { setFileError(true); run.say("warn", lang === "fr" ? `${f.name} : ce n'est pas le catalogue attendu pour cette mission, refusé` : `${f.name}: not the catalogue expected for this engagement, rejected`, true); return; }
     setFileError(false);
     setFileName(f.name);
-    play("import", importScript(f.size, lang, f.name, delimiterOf(text.replace(/^\uFEFF/, ""))));
+    play("import", importScript(f.size, lang, f.name, delimiterOf(text.replace(/^﻿/, ""))));
   };
 
-  const reset = () => { run.reset(); setStatus(INITIAL); setView("import"); setAccepted(new Set()); setFileError(false); setFileName(""); };
+  const reset = () => { run.reset(); setStatus(INITIAL); setView("import"); setDecisions({}); setFileError(false); setFileName(""); };
 
   const st = status[view];
   const S = L.steps[view];
   const n = STEP_IDS.indexOf(view) + 1;
-  const scripts: Partial<Record<StepId, (l: Lang) => Script>> = { checks: checksScript, classify: classifyScript, match: matchScript, ratios: ratiosScript, quality: qualityScript, deliver: deliverScript };
+  const scripts: Partial<Record<StepId, (l: Lang) => Script>> = {
+    checks: checksScript, classify: classifyScript,
+    match: (l) => matchScript(l, decisions), ratios: (l) => ratiosScript(l, decisions),
+    quality: (l) => qualityScript(l, decisions), deliver: (l) => deliverScript(l, decisions),
+  };
   const imported = status.import === "done";
 
   return (
     <>
       <div className="app">
         <header className="top">
-          <div className="logo"><b>Altera<em>.ai</em></b><span>{L.demo}</span></div>
+          <div className="logo"><b>Altera<em>.ai</em></b></div>
           <div className="crumb">{imported ? <><b>Harbour Market</b><span>·</span><span>{L.project.split("·")[1]}</span></> : <span>{L.newProject}</span>}</div>
           <div className="top-r">
-            <span className="badge">{L.fictitious}</span>
             <div className="lang" role="group" aria-label="Language">
               {(["en", "fr"] as Lang[]).map((l) => <button key={l} aria-pressed={lang === l} onClick={() => setLang(l)}>{l.toUpperCase()}</button>)}
             </div>
@@ -107,15 +118,15 @@ export default function App() {
             {STEP_IDS.map((id, i) => {
               const s = status[id];
               const can = s !== "locked";
-              const anoms = (STEP_ANOMALIES[id] ?? []).filter((a) => !accepted.has(a)).length;
+              const open = (STEP_ANOMALIES[id] ?? []).filter((a) => !decisions[a]).length;
               return (
                 <button key={id} className={`pstep ${s} ${can ? "can" : ""} ${view === id ? "now" : ""}`} disabled={!can} onClick={() => can && setView(id)}>
                   <span className="ic" style={{ position: "relative" }}>{s === "done" ? <Ico d={I.check} size={14} /> : s === "running" ? <span className="spin" /> : s === "attention" ? "!" : i + 1}</span>
-                  <span>{L.steps[id].name}{s === "attention" && anoms > 0 && <small>{fill(L.needs, { n: anoms })}</small>}</span>
+                  <span>{L.steps[id].name}{s === "attention" && open > 0 && <small>{fill(L.needs, { n: open })}</small>}</span>
                 </button>
               );
             })}
-            <div className="side-foot" dangerouslySetInnerHTML={{ __html: L.sideFoot }} />
+            <div className="credit">{L.credit}</div>
           </aside>
 
           <main className="main">
@@ -123,7 +134,7 @@ export default function App() {
               <div>
                 <div className="k">{fill(L.stepOf, { n })}</div>
                 <h1>{S.title}</h1>
-                <p>{view === "classify" ? fill(S.desc, { n: IN_PT.length }) : S.desc}</p>
+                <p>{S.desc}</p>
               </div>
               {view !== "import" && (
                 st === "done" && nextOf(view) ? <button className="run lav" onClick={() => setView(nextOf(view)!)}>{L.next} <Ico d={I.arrow} size={16} /></button>
@@ -137,12 +148,12 @@ export default function App() {
             {st === "running" && <div className="progress"><i style={{ width: `${run.progress * 100}%` }} /></div>}
 
             {view === "import" && <ImportPanel lang={lang} status={status.import} error={fileError} fileName={fileName} onFile={onFile} marks={run.marks} />}
-            {view === "checks" && <ChecksPanel lang={lang} st={st} marks={run.marks} busy={run.busy} accepted={accepted} accept={accept} />}
-            {view === "classify" && <ClassifyPanel lang={lang} st={st} marks={run.marks} busy={run.busy} accepted={accepted} />}
-            {view === "match" && <MatchPanel lang={lang} st={st} marks={run.marks} busy={run.busy} accepted={accepted} accept={accept} />}
-            {view === "ratios" && <RatiosPanel lang={lang} marks={run.marks} />}
-            {view === "quality" && <QualityPanel lang={lang} marks={run.marks} />}
-            {view === "deliver" && <DeliverPanel lang={lang} st={st} marks={run.marks} progress={run.progress} />}
+            {view === "checks" && <ChecksPanel lang={lang} st={st} marks={run.marks} busy={run.busy} decisions={decisions} decide={decide} />}
+            {view === "classify" && <ClassifyPanel lang={lang} marks={run.marks} busy={run.busy} decisions={decisions} />}
+            {view === "match" && <MatchPanel lang={lang} st={st} marks={run.marks} busy={run.busy} decisions={decisions} decide={decide} />}
+            {view === "ratios" && <RatiosPanel lang={lang} marks={run.marks} decisions={decisions} />}
+            {view === "quality" && <QualityPanel lang={lang} marks={run.marks} decisions={decisions} />}
+            {view === "deliver" && <DeliverPanel lang={lang} st={st} marks={run.marks} progress={run.progress} decisions={decisions} />}
           </main>
 
           <LogPanel lang={lang} lines={run.lines} busy={run.busy} />
@@ -182,7 +193,7 @@ function ImportPanel({ lang, status, error, fileName, onFile, marks }: { lang: L
   if (status === "done" || marks.has("imported")) return (
     <>
       <div className="ctitle" style={{ marginTop: 4 }}><span>{L.asReceived}</span><span className="chip">{fill(L.rowsCols, { r: N, c: COLUMN_NAMES[lang].length })}</span></div>
-      <RowsTable view="raw" lang={lang} marks={marks} busy={false} accepted={new Set()} />
+      <RowsTable view="raw" lang={lang} marks={marks} busy={false} decisions={{}} />
     </>
   );
   if (status === "running") return (
@@ -206,27 +217,33 @@ function ImportPanel({ lang, status, error, fileName, onFile, marks }: { lang: L
   );
 }
 
-// ------------------------------------------------------------ anomalies to accept
-function Anomalies({ lang, ids, marks, accepted, accept, canAccept }: { lang: Lang; ids: AnomalyId[]; marks: Set<string>; accepted: Set<AnomalyId>; accept: (id: AnomalyId) => void; canAccept: boolean }) {
+// ------------------------------------------------------------ anomalies: accept or decline
+function Anomalies({ lang, ids, marks, decisions, decide, canDecide }: { lang: Lang; ids: AnomalyId[]; marks: Set<string>; decisions: Decisions; decide: (id: AnomalyId, d: Decision) => void; canDecide: boolean }) {
   const L = T[lang];
-  const shown = ANOMALIES.filter((a) => ids.includes(a.id) && marks.has(`anom:${a.id}`));
+  const shown = ANOMALIES.filter((a) => ids.includes(a.id) && marks.has(`anom:${a.id}`)).sort((a, b) => ANOMALY_ORDER.indexOf(a.id) - ANOMALY_ORDER.indexOf(b.id));
   if (!shown.length) return null;
   return (
     <div className="card">
-      <div className="ctitle"><span>{L.toReview}</span>{shown.every((a) => accepted.has(a.id)) && <span className="chip ok">{L.allResolved}</span>}</div>
+      <div className="ctitle"><span>{L.toReview}</span>{shown.every((a) => decisions[a.id]) && <span className="chip ok">{L.allResolved}</span>}</div>
       <div className="anoms">
         {shown.map((a) => {
           const p = PRODUCTS[a.row];
-          const ok = accepted.has(a.id);
+          const d = decisions[a.id];
           const [title, text] = L.anomalies[a.id];
-          const fx = a.id === "ean" ? <><s>{a.from}</s>→<b>{a.to}</b></>
-            : a.id === "weight" ? <><s>{L.emptyCell}</s>→<b>{fmtNum(Number(a.to), lang, 3)} kg</b></>
-            : <><s>{a.from} g</s>→<b>{fmtNum(Number(a.to), lang, 1)} g</b></>;
+          const from = lang === "fr" && a.fromFr !== undefined ? a.fromFr : a.from;
+          const to = lang === "fr" && a.toFr !== undefined ? a.toFr : a.to;
+          const fx = a.id === "ingredients" ? <><s>{short(from)}</s>→<b>{short(to)}</b></>
+            : a.id === "weight" ? <><s>{L.emptyCell}</s>→<b>{fmtNum(Number(to), lang, 3)} kg</b></>
+            : <><s>{from} g</s>→<b>{fmtNum(Number(to), lang, 1)} g</b></>;
           return (
-            <div className={`anom ${ok ? "ok" : ""}`} key={a.id}>
-              <span className="ai">{ok ? <Ico d={I.check} /> : "!"}</span>
+            <div className={`anom ${d === "accepted" ? "ok" : d === "declined" ? "no" : ""}`} key={a.id}>
+              <span className="ai">{d === "accepted" ? <Ico d={I.check} /> : d === "declined" ? <Ico d={I.cross} size={16} /> : "!"}</span>
               <div><b>{title} · <span className="mono" style={{ fontWeight: 500 }}>{tillLabel(p, lang)}</span></b><p>{text}</p><span className="fx">{fx}</span></div>
-              {ok ? <span className="chip ok">{L.accepted}</span> : <button className="accept" disabled={!canAccept} onClick={() => accept(a.id)}>{L.accept}</button>}
+              {d ? <span className={`chip ${d === "accepted" ? "ok" : "warn"}`}>{d === "accepted" ? L.accepted : L.declined}</span>
+                : <div className="decide">
+                    <button className="decline" disabled={!canDecide} onClick={() => decide(a.id, "declined")}>{L.decline}</button>
+                    <button className="accept" disabled={!canDecide} onClick={() => decide(a.id, "accepted")}>{L.accept}</button>
+                  </div>}
             </div>
           );
         })}
@@ -236,13 +253,13 @@ function Anomalies({ lang, ids, marks, accepted, accept, canAccept }: { lang: La
 }
 
 // ------------------------------------------------------------ 2 · data checks
-function ChecksPanel({ lang, st, marks, busy, accepted, accept }: { lang: Lang; st: Status; marks: Set<string>; busy: boolean; accepted: Set<AnomalyId>; accept: (id: AnomalyId) => void }) {
+function ChecksPanel({ lang, st, marks, busy, decisions, decide }: { lang: Lang; st: Status; marks: Set<string>; busy: boolean; decisions: Decisions; decide: (id: AnomalyId, d: Decision) => void }) {
   const L = T[lang];
   const scope = marks.has("scope");
   const inWwf = PRODUCTS.filter((p) => p.res.inWwf).length;
   return (
     <>
-      <Anomalies lang={lang} ids={["ean", "weight"]} marks={marks} accepted={accepted} accept={accept} canAccept={st === "attention"} />
+      <Anomalies lang={lang} ids={["ingredients", "weight"]} marks={marks} decisions={decisions} decide={decide} canDecide={st === "attention"} />
       <div className="grid2" style={{ marginTop: 14 }}>
         <div className="card">
           <div className="ctitle">{L.inventory}</div>
@@ -258,20 +275,18 @@ function ChecksPanel({ lang, st, marks, busy, accepted, accept }: { lang: Lang; 
           <div className="ctitle">{L.scope}</div>
           <div className="funnel">
             <div className="fun"><span>{L.received}</span><span className="bar"><i style={{ width: scope ? "100%" : 0, background: "var(--ink)" }} /></span><b>{scope ? N : ""}</b></div>
-            {scope && <div className="cut">× {L.cutNonFood}</div>}
             <div className="fun"><span>{L.wwfScope}</span><span className="bar"><i style={{ width: scope ? `${(100 * inWwf) / N}%` : 0, background: "var(--comp)" }} /></span><b>{scope ? inWwf : ""}</b></div>
-            {scope && <div className="cut">× {L.cutAppendix}</div>}
             <div className="fun"><span>{L.ptScope}</span><span className="bar"><i style={{ width: scope ? `${(100 * IN_PT.length) / N}%` : 0, background: "var(--green)" }} /></span><b>{scope ? IN_PT.length : ""}</b></div>
           </div>
         </div>
       </div>
-      <div style={{ marginTop: 14 }}><RowsTable view="checks" lang={lang} marks={marks} busy={busy} accepted={accepted} /></div>
+      <div style={{ marginTop: 14 }}><RowsTable view="checks" lang={lang} marks={marks} busy={busy} decisions={decisions} /></div>
     </>
   );
 }
 
 // ------------------------------------------------------------ 3 · classification
-function ClassifyPanel({ lang, marks, busy, accepted }: { lang: Lang; st: Status; marks: Set<string>; busy: boolean; accepted: Set<AnomalyId> }) {
+function ClassifyPanel({ lang, marks, busy, decisions }: { lang: Lang; marks: Set<string>; busy: boolean; decisions: Decisions }) {
   const L = T[lang];
   const seen = (p: (typeof PRODUCTS)[number]) => marks.has(`cls:${PRODUCTS.indexOf(p)}`);
   const cards: [string, number, string, string][] = [
@@ -283,24 +298,28 @@ function ClassifyPanel({ lang, marks, busy, accepted }: { lang: Lang; st: Status
       <div className="grid3" style={{ marginBottom: 14 }}>
         {cards.map(([k, n, name, note]) => <div className={`stat ${k === "out" ? "out" : ""}`} key={k}><b>{n}</b><span><strong>{name}</strong>{note}</span></div>)}
       </div>
-      <RowsTable view="classify" lang={lang} marks={marks} busy={busy} accepted={accepted} />
+      <RowsTable view="classify" lang={lang} marks={marks} busy={busy} decisions={decisions} />
     </>
   );
 }
 
 // ------------------------------------------------------------ 4 · protein and split
-function MatchPanel({ lang, st, marks, busy, accepted, accept }: { lang: Lang; st: Status; marks: Set<string>; busy: boolean; accepted: Set<AnomalyId>; accept: (id: AnomalyId) => void }) {
+function MatchPanel({ lang, st, marks, busy, decisions, decide }: { lang: Lang; st: Status; marks: Set<string>; busy: boolean; decisions: Decisions; decide: (id: AnomalyId, d: Decision) => void }) {
   const L = T[lang];
-  const srcs = (["declared", "reference", "off", "ciqual", "median"] as const).map((s) => ({ s, n: IN_PT.filter((p) => p.res.protSrc === s && (marks.has(`prot:${PRODUCTS.indexOf(p)}`) || (s === "off" && accepted.has("protein") && p.key === "spaghetti"))).length }));
-  const splits = (["one_side", "ingredients", "nevo", "convention"] as const).map((s) => ({ s, n: IN_PT.filter((p) => p.res.split === s && marks.has(`split:${PRODUCTS.indexOf(p)}`)).length }));
+  const prot = ANOMALIES.find((a) => a.id === "protein")!;
+  const products = productsFor(decisions);
+  const inPt = products.filter((p) => p.res.inPt);
+  const known = (i: number) => (i === prot.row ? !!decisions.protein : marks.has(`prot:${i}`));
+  const srcs = (["declared", "reference", "off", "ciqual"] as const).map((s) => ({ s, n: inPt.filter((p) => p.res.protSrc === s && known(products.indexOf(p))).length }));
+  const splits = (["one_side", "ingredients", "nevo", "convention", "group"] as const).map((s) => ({ s, n: inPt.filter((p) => p.res.split === s && marks.has(`split:${products.indexOf(p)}`)).length }));
   return (
     <>
-      <Anomalies lang={lang} ids={["protein"]} marks={marks} accepted={accepted} accept={accept} canAccept={st === "attention"} />
+      <Anomalies lang={lang} ids={["protein"]} marks={marks} decisions={decisions} decide={decide} canDecide={st === "attention"} />
       <div className="grid2" style={{ marginTop: 14 }}>
         <div className="card"><div className="ctitle">{L.sourceCounts}</div><div className="counts">{srcs.map(({ s, n }) => <div className="count" key={s}><b>{n}</b>{L.sources[s]}</div>)}</div></div>
         <div className="card"><div className="ctitle">{L.splitCounts}</div><div className="counts">{splits.map(({ s, n }) => <div className="count" key={s}><b>{n}</b>{L.splits[s]}</div>)}</div></div>
       </div>
-      <div style={{ marginTop: 14 }}><RowsTable view="match" lang={lang} marks={marks} busy={busy} accepted={accepted} /></div>
+      <div style={{ marginTop: 14 }}><RowsTable view="match" lang={lang} marks={marks} busy={busy} decisions={decisions} /></div>
     </>
   );
 }
@@ -317,12 +336,10 @@ function Kpi({ lang, show, tone, method, value, label, refPos, refText }: { lang
     </div>
   );
 }
-function RatiosPanel({ lang, marks }: { lang: Lang; marks: Set<string> }) {
+function RatiosPanel({ lang, marks, decisions }: { lang: Lang; marks: Set<string>; decisions: Decisions }) {
   const L = T[lang];
-  const R = RESULTS;
+  const R = resultsFor(decisions);
   const det = marks.has("detail");
-  const maxG = Math.max(...FOOD_GROUPS.map((g) => R.wwf.groups[g].plant + R.wwf.groups[g].animal));
-  const maxD = Math.max(...R.pt.byDept.map((d) => d.t));
   return (
     <>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12 }}>
@@ -336,29 +353,40 @@ function RatiosPanel({ lang, marks }: { lang: Lang; marks: Set<string> }) {
           <div className="ctitle"><span>{L.byGroup}</span><span className="legend" style={{ margin: 0 }}><span><i style={{ background: "var(--plant)" }} />{L.plant}</span><span><i style={{ background: "var(--animal)" }} />{L.animal}</span></span></div>
           {FOOD_GROUPS.map((g) => {
             const v = R.wwf.groups[g];
+            const all = v.plant + v.animal;
+            const share = all ? v.plant / all : 0;
             return (
-              <div className="drow" key={g} style={{ gridTemplateColumns: "44px minmax(0, 1fr) 46px" }}>
-                <b style={{ textAlign: "left", fontFamily: "var(--display)" }}>{g}</b>
-                <span className="split" style={{ height: 10 }}><i style={{ width: det ? `${(v.plant / maxG) * 100}%` : 0, background: "var(--plant)" }} /><i style={{ width: det ? `${(v.animal / maxG) * 100}%` : 0, background: "var(--animal)" }} /></span>
-                <b>{det ? fmtPct(v.plant / (v.plant + v.animal || 1), lang, 0) : ""}</b>
+              <div className="grow" key={g}>
+                <span className="gn"><b>{g}</b>{L.fg[g]}</span>
+                <span className="t">{det ? `${fmtNum(all, lang, 0)} t` : ""}</span>
+                <b>{det ? fmtPct(share, lang, 0) : ""}</b>
+                <span className="split"><i style={{ width: det ? `${share * 100}%` : 0, background: "var(--plant)" }} /><i style={{ width: det ? `${(1 - share) * 100}%` : 0, background: "var(--animal)" }} /></span>
               </div>
             );
           })}
-          <div className="legend">{lang === "fr" ? "Tonnes de produit, laitiers en équivalents lait" : "Tonnes of product, dairy in dairy equivalents"}</div>
+          <div className="legend">{lang === "fr" ? "Part végétale de chaque groupe, en tonnes de produit, laitiers en équivalents lait" : "Plant share of each group, in tonnes of product, dairy in dairy equivalents"}</div>
         </div>
         <div className="card">
           <div className="ctitle">{L.byClass}</div>
           <div className="seg">{PT_CLASSES.map((c) => <i key={c} style={{ flexBasis: det ? `${R.pt.byClass[c] * 100}%` : "0%", background: CLASS_COLOR[c] }} />)}</div>
           <div className="legend">{PT_CLASSES.map((c) => <span key={c}><i style={{ background: CLASS_COLOR[c] }} />{L.classes[c]} <b>{det ? fmtPct(R.pt.byClass[c], lang, 0) : ""}</b></span>)}</div>
-          <div className="ctitle" style={{ marginTop: 18 }}>{L.byDept}</div>
-          {R.pt.byDept.slice(0, 7).map((d) => (
-            <div className="drow" key={d.dept}>
-              <span>{dept(d.dept, lang)}</span>
-              <span className="split" style={{ height: 8 }}><i style={{ width: det ? `${((d.t * d.ratio) / maxD) * 100}%` : 0, background: "var(--plant)" }} /><i style={{ width: det ? `${((d.t * (1 - d.ratio)) / maxD) * 100}%` : 0, background: "var(--animal)" }} /></span>
-              <span className="t">{det ? `${fmtNum(d.t, lang, 1)} t` : ""}</span>
-              <b>{det ? fmtPct(d.ratio, lang, 0) : ""}</b>
+          <div className="ctitle" style={{ marginTop: 16 }}>{L.bySub}</div>
+          {PT_SUBS.map(({ group, subs }) => (
+            <div key={group}>
+              <div className="subhead"><i style={{ background: CLASS_COLOR[group] }} />{L.classes[group]}</div>
+              {subs.filter((s) => R.pt.bySub[s]).map((s) => {
+                const t = R.pt.bySub[s] ?? 0;
+                return (
+                  <div className="drow sub" key={s}>
+                    <span>{L.subs[s]}</span>
+                    <span className="t">{det ? `${fmtNum(t, lang, 1)} t` : ""}</span>
+                    <b>{det ? fmtPct(t / R.pt.protT, lang, 0) : ""}</b>
+                  </div>
+                );
+              })}
             </div>
           ))}
+          <div className="legend">{lang === "fr" ? "Tonnes de protéines, et part de toutes les protéines vendues" : "Tonnes of protein, and share of all protein sold"}</div>
         </div>
       </div>
     </>
@@ -366,8 +394,10 @@ function RatiosPanel({ lang, marks }: { lang: Lang; marks: Set<string> }) {
 }
 
 // ------------------------------------------------------------ 6 · quality checks
-function QualityPanel({ lang, marks }: { lang: Lang; marks: Set<string> }) {
+function QualityPanel({ lang, marks, decisions }: { lang: Lang; marks: Set<string>; decisions: Decisions }) {
   const L = T[lang];
+  const kept = decisions.protein === "declined" ? "declined" : "accepted";
+  const vals = { n: IN_PT.length, ...CROSS, energy: L.energy[kept], cross: L.cross[kept] };
   return (
     <>
       <div className="card">
@@ -381,7 +411,7 @@ function QualityPanel({ lang, marks }: { lang: Lang; marks: Set<string> }) {
                   return (
                     <div className="citem" key={t}>
                       <span className={`tick ${ok ? "ok" : ""}`}>{ok ? <Ico d={I.check} size={12} /> : null}</span>
-                      <span>{t}<small>{ok ? fill(d, { n: IN_PT.length, ...CROSS }) : " "}</small></span>
+                      <span>{t}<small>{ok ? fill(d, vals) : " "}</small></span>
                     </div>
                   );
                 })}
@@ -399,10 +429,11 @@ function QualityPanel({ lang, marks }: { lang: Lang; marks: Set<string> }) {
 }
 
 // ------------------------------------------------------------ 7 · deliverables
-function DeliverPanel({ lang, st, marks, progress }: { lang: Lang; st: Status; marks: Set<string>; progress: number }) {
+function DeliverPanel({ lang, st, marks, progress, decisions }: { lang: Lang; st: Status; marks: Set<string>; progress: number; decisions: Decisions }) {
   const L = T[lang];
+  const D = downloads(decisions);
   const icons = [I.report, I.sheet, I.table, I.doc];
-  const hrefs = [DOWNLOADS.report[lang], DOWNLOADS.workbook, DOWNLOADS.csv, DOWNLOADS.scope[lang]];
+  const hrefs = [D.report[lang], D.workbook, D.csv, D.scope[lang]];
   const total = DELIVER_TOTAL;
   return (
     <>

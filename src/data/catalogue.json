@@ -47,7 +47,7 @@
    "Nuts and dried fruit": "Fruits secs",
    "Plant drinks": "Boissons végétales",
    "Canned vegetables": "Légumes en conserve",
-   "Fruit desserts": "Compotes",
+   "Tomato sauces": "Sauces tomate",
    "Pasta": "Pâtes",
    "Sandwich bread": "Pain de mie",
    "Cereals": "Céréales",
@@ -122,7 +122,8 @@
     "protSrc": "declared",
     "plant": 0,
     "split": "one_side",
-    "level": "A"
+    "level": "A",
+    "ptSub": "red_meat"
    }
   },
   {
@@ -168,7 +169,8 @@
     "protSrc": "declared",
     "plant": 0,
     "split": "one_side",
-    "level": "A"
+    "level": "A",
+    "ptSub": "poultry"
    }
   },
   {
@@ -214,7 +216,8 @@
     "protSrc": "reference",
     "plant": 0,
     "split": "one_side",
-    "level": "A"
+    "level": "A",
+    "ptSub": "red_meat"
    }
   },
   {
@@ -260,7 +263,8 @@
     "protSrc": "declared",
     "plant": 0,
     "split": "one_side",
-    "level": "A"
+    "level": "A",
+    "ptSub": "fish_seafood"
    }
   },
   {
@@ -306,7 +310,8 @@
     "protSrc": "reference",
     "plant": 0,
     "split": "one_side",
-    "level": "A"
+    "level": "A",
+    "ptSub": "eggs"
    }
   },
   {
@@ -352,13 +357,14 @@
     "protSrc": "declared",
     "plant": 0,
     "split": "one_side",
-    "level": "A"
+    "level": "A",
+    "ptSub": "cheese"
    }
   },
   {
    "key": "yogurt",
    "raw": {
-    "ean": "3033491147063",
+    "ean": "3033491147067",
     "till_label": "ACTIVIA NATURAL YOGURT 4X125G",
     "product_name": "Activia natural yogurt, 4 × 125 g",
     "brand": "Activia",
@@ -398,7 +404,8 @@
     "protSrc": "declared",
     "plant": 0,
     "split": "one_side",
-    "level": "A"
+    "level": "A",
+    "ptSub": "milk_yoghurts"
    }
   },
   {
@@ -444,7 +451,8 @@
     "protSrc": "declared",
     "plant": 0,
     "split": "one_side",
-    "level": "A"
+    "level": "A",
+    "ptSub": "milk_yoghurts"
    }
   },
   {
@@ -490,7 +498,8 @@
     "protSrc": "declared",
     "plant": 0,
     "split": "one_side",
-    "level": "A"
+    "level": "A",
+    "ptSub": "other_animal"
    }
   },
   {
@@ -582,7 +591,8 @@
     "protSrc": "off",
     "plant": 1,
     "split": "one_side",
-    "level": "A"
+    "level": "A",
+    "ptSub": "beans_pulses"
    }
   },
   {
@@ -628,7 +638,8 @@
     "protSrc": "declared",
     "plant": 1,
     "split": "one_side",
-    "level": "A"
+    "level": "A",
+    "ptSub": "plant_alternatives"
    }
   },
   {
@@ -674,7 +685,8 @@
     "protSrc": "reference",
     "plant": 1,
     "split": "one_side",
-    "level": "A"
+    "level": "A",
+    "ptSub": "plant_alternatives"
    }
   },
   {
@@ -720,7 +732,8 @@
     "protSrc": "off",
     "plant": 1,
     "split": "one_side",
-    "level": "A"
+    "level": "A",
+    "ptSub": "nuts_seeds"
    }
   },
   {
@@ -766,7 +779,8 @@
     "protSrc": "declared",
     "plant": 1,
     "split": "one_side",
-    "level": "A"
+    "level": "A",
+    "ptSub": "plant_alternatives"
    }
   },
   {
@@ -812,7 +826,8 @@
     "protSrc": "declared",
     "plant": 1,
     "split": "one_side",
-    "level": "A"
+    "level": "A",
+    "ptSub": "plant_alternatives"
    }
   },
   {
@@ -847,51 +862,52 @@
     "conf": 0.93,
     "wwf": {
      "struct": "whole",
-     "fg": "FG4",
-     "sub": null,
+     "fg": "FG1",
+     "sub": "pulses",
      "origin": "plant",
      "cat": null
     },
     "dairy": 1,
-    "pt": "plant_non_core",
+    "pt": "plant_core",
     "prot": 5.0,
     "protSrc": "ciqual",
     "plant": 1,
     "split": "one_side",
     "level": "A",
-    "matched": "Petits pois, appertisés, égouttés"
+    "matched": "Petits pois, appertisés, égouttés",
+    "ptSub": "beans_pulses"
    }
   },
   {
-   "key": "compote",
+   "key": "passata",
    "raw": {
-    "ean": "3608580789758",
-    "till_label": "ANDROS APPLE COMPOTE 730G",
-    "product_name": "Apple compote, 730 g",
-    "brand": "Andros",
+    "ean": "8005110860508",
+    "till_label": "MUTTI PASSATA SIEVED TOMATOES 500G",
+    "product_name": "Passata di pomodoro, sieved tomatoes, 500 g",
+    "brand": "Mutti",
     "department": "Grocery",
-    "segment": "Fruit desserts",
-    "net_weight_kg": "0.73",
-    "ingredients": "Apples (purée and concentrated purée) 99.9%, concentrated acerola juice",
-    "energy_kcal_100g": "",
-    "fat_g_100g": "",
-    "carbs_g_100g": "",
-    "protein_g_100g": "",
-    "units_sold_12m": "88000"
+    "segment": "Tomato sauces",
+    "net_weight_kg": "0.5",
+    "ingredients": "Tomatoes 99.5%, salt",
+    "energy_kcal_100g": "36",
+    "fat_g_100g": "0.3",
+    "carbs_g_100g": "5.1",
+    "protein_g_100g": "1.6",
+    "units_sold_12m": "92000"
    },
    "fr": {
-    "till_label": "ANDROS COMPOTE POMME 730G",
-    "product_name": "Compote pomme nature, 730 g",
-    "ingredients": "Pommes (purée et purée concentrée) 99,9 %, jus concentré d'acérola"
+    "till_label": "MUTTI PASSATA PUREE TOMATE 500G",
+    "product_name": "Passata di pomodoro, purée de tomates, 500 g",
+    "ingredients": "Tomates 99,5 %, sel"
    },
    "res": {
-    "ean": "3608580789758",
+    "ean": "8005110860508",
     "inPt": true,
     "inWwf": true,
-    "weightKg": 0.73,
+    "weightKg": 0.5,
     "weightSrc": "declared",
     "route": "model",
-    "conf": 0.91,
+    "conf": 0.96,
     "wwf": {
      "struct": "whole",
      "fg": "FG4",
@@ -901,12 +917,11 @@
     },
     "dairy": 1,
     "pt": "plant_non_core",
-    "prot": 0.4,
-    "protSrc": "median",
+    "prot": 1.6,
+    "protSrc": "declared",
     "plant": 1,
     "split": "one_side",
-    "level": "A",
-    "matched": "Fruit desserts"
+    "level": "A"
    }
   },
   {
@@ -1151,7 +1166,7 @@
     "department": "Breakfast",
     "segment": "Spreads",
     "net_weight_kg": "0.4",
-    "ingredients": "Sugar, palm oil, HAZELNUTS 13%, fat-reduced cocoa 7.4%, skimmed MILK powder 6.6%, WHEY powder, emulsifiers: lecithins (SOY), vanillin. Gluten free.",
+    "ingredients": "Potatoes (66%), vegetable oils (sunflower, rapeseed, maize in varying proportions), salt",
     "energy_kcal_100g": "539",
     "fat_g_100g": "30.9",
     "carbs_g_100g": "57.5",
@@ -1161,7 +1176,7 @@
    "fr": {
     "till_label": "NUTELLA PATE A TARTINER 400G",
     "product_name": "Nutella, 400 g",
-    "ingredients": "Sucre, huile de palme, NOISETTES 13%, cacao maigre 7,4%, LAIT écrémé en poudre 6,6%, LACTOSERUM en poudre, émulsifiants: lécithines [SOJA), vanilline. Sans gluten."
+    "ingredients": "Pommes de terre (66%),huiles végétales (tournesol, colza, maïs en proportion variable),sel"
    },
    "res": {
     "ean": "3017620422003",
@@ -1271,12 +1286,13 @@
      "cat": "meat_based"
     },
     "dairy": 1,
-    "pt": "composite",
+    "pt": "animal_core",
     "prot": 7.5,
     "protSrc": "declared",
-    "plant": 0.21,
-    "split": "ingredients",
-    "level": "A"
+    "plant": 0,
+    "split": "group",
+    "level": "A",
+    "ptSub": "other_animal"
    }
   },
   {
@@ -1451,22 +1467,35 @@
  ],
  "anomalies": [
   {
-   "id": "ean",
-   "row": 6,
-   "from": "3033491147063",
-   "to": "3033491147067"
-  },
-  {
    "id": "protein",
    "row": 18,
    "from": "65",
-   "to": "13"
+   "to": "13",
+   "declined": {
+    "prot": 65.0,
+    "protSrc": "declared"
+   }
   },
   {
    "id": "weight",
    "row": 22,
    "from": "",
-   "to": "0.175"
+   "to": "0.175",
+   "declined": {
+    "weightKg": 0,
+    "weightSrc": "missing"
+   }
+  },
+  {
+   "id": "ingredients",
+   "row": 23,
+   "from": "Potatoes (66%), vegetable oils (sunflower, rapeseed, maize in varying proportions), salt",
+   "to": "Sugar, palm oil, HAZELNUTS 13%, fat-reduced cocoa 7.4%, skimmed MILK powder 6.6%, WHEY powder, emulsifiers: lecithins (SOY), vanillin. Gluten free.",
+   "fromFr": "Pommes de terre (66%),huiles végétales (tournesol, colza, maïs en proportion variable),sel",
+   "toFr": "Sucre, huile de palme, NOISETTES 13%, cacao maigre 7,4%, LAIT écrémé en poudre 6,6%, LACTOSERUM en poudre, émulsifiants: lécithines [SOJA), vanilline. Sans gluten.",
+   "declined": {
+    "plant": 1.0
+   }
   }
  ]
 }

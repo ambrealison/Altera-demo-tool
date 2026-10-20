@@ -328,5 +328,16 @@
   "fat": null,
   "carbs": null,
   "ingredients": ""
+ },
+ "passata": {
+  "code": "8005110860508",
+  "product_name": "Passata Mutti di pomodoro - purée de tomate",
+  "brands": "Mutti",
+  "quantity": "500 g",
+  "protein": 1.6,
+  "kcal": 36,
+  "fat": 0.3,
+  "carbs": 5.1,
+  "ingredients": "Tomates 99,5 %, sel"
  }
 }

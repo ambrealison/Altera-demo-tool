@@ -3,37 +3,39 @@
 // its arrival, with the engine log a real run would print.
 import type { Event } from "./runner";
 import { spread } from "./runner";
-import type { Lang, Product } from "./types";
-import { ANOMALIES, COLUMNS, COLUMN_NAMES, IN_PT, N, PRODUCTS, RESULTS, fmtNum, fmtPct, segment, tillLabel } from "./data";
+import type { Decisions, Lang, Product } from "./types";
+import { ANOMALIES, COLUMNS, COLUMN_NAMES, IN_PT, N, PRODUCTS, fmtNum, fmtPct, resultsFor, tillLabel } from "./data";
+import built from "./data/deliverables.json";
 
 const idx = (key: string) => PRODUCTS.findIndex((p) => p.key === key);
 const P = (key: string) => PRODUCTS[idx(key)];
 const label = (p: Product, lang: Lang) => tillLabel(p, lang);
+// WWF sub-groups, origins and composite categories in the terms of the Altera glossary
 const SUB: Record<Lang, Record<string, string>> = {
   en: {
-    red_meat: "red meat", poultry: "poultry", fish_shellfish: "fish", eggs: "eggs", dairy: "dairy", animal_fat: "animal fat", plant_fat: "plant fat",
-    pulses: "pulses", alternative_products: "meat alternative", tofu_tempeh_seitan: "tofu", nuts: "nuts", dairy_alternatives: "dairy alternative",
-    refined_grain: "refined grain", whole_grain: "whole grain",
+    red_meat: "Red meat", poultry: "Poultry", fish_shellfish: "Fish & Shellfish", eggs: "Eggs", dairy: "Dairy", animal_fat: "Animal-Based Fats", plant_fat: "Plant-Based Fats",
+    pulses: "Pulses", alternative_products: "Alternative Products", tofu_tempeh_seitan: "Tofu, tempeh & seitan", nuts: "Nuts", dairy_alternatives: "Dairy Alternatives",
+    refined_grain: "Refined grain", whole_grain: "Whole grain",
   },
   fr: {
-    red_meat: "viande rouge", poultry: "volaille", fish_shellfish: "poisson", eggs: "œufs", dairy: "laitier", animal_fat: "graisse animale", plant_fat: "graisse végétale",
-    pulses: "légumineuses", alternative_products: "alternative à la viande", tofu_tempeh_seitan: "tofu", nuts: "fruits à coque", dairy_alternatives: "alternative laitière",
-    refined_grain: "céréale raffinée", whole_grain: "céréale complète",
+    red_meat: "Viande rouge", poultry: "Volaille", fish_shellfish: "Poissons et fruits de mer", eggs: "Œufs", dairy: "Produits laitiers", animal_fat: "Graisses animales", plant_fat: "Graisses végétales",
+    pulses: "Légumineuses", alternative_products: "Produits alternatifs", tofu_tempeh_seitan: "Tofu, tempeh et seitan", nuts: "Fruits à coque", dairy_alternatives: "Alternatives laitières",
+    refined_grain: "Céréales raffinées", whole_grain: "Céréales complètes",
   },
 };
-const ORIGIN: Record<Lang, Record<string, string>> = { en: { plant: "plant", animal: "animal" }, fr: { plant: "végétal", animal: "animal" } };
+const ORIGIN: Record<Lang, Record<string, string>> = { en: { plant: "Plant-based", animal: "Animal-based" }, fr: { plant: "Végétal", animal: "Animal" } };
 const CAT: Record<Lang, Record<string, string>> = {
-  en: { meat_based: "meat-based", seafood_based: "seafood-based", vegetarian: "vegetarian", vegan: "vegan" },
-  fr: { meat_based: "viande", seafood_based: "produits de la mer", vegetarian: "végétarien", vegan: "végétalien" },
+  en: { meat_based: "Meat-based", seafood_based: "Seafood-based", vegetarian: "Vegetarian", vegan: "Vegan" },
+  fr: { meat_based: "À base de viande", seafood_based: "À base de produits de la mer", vegetarian: "Végétarien", vegan: "Végétalien" },
 };
-const CLS: Record<string, string> = { animal_core: "Animal core", composite: "Composite", plant_non_core: "Plant-based non-core", plant_core: "Plant-based core" };
+const CLS: Record<string, string> = { animal_core: "Animal core", composite: "Animal-plant-based composite", plant_non_core: "Plant-based non-core", plant_core: "Plant-based core" };
 
 /** The WWF classification of a product, in words: food group, sub-group, origin. */
 export function wwfText(p: Product, lang: Lang, withOrigin = true): string {
   const w = p.res.wwf;
   const fr = lang === "fr";
-  if (!w) return p.res.excl === "alcohol" ? (fr ? "Appendix A (alcool)" : "Appendix A (alcohol)") : (fr ? "Appendix A (soda)" : "Appendix A (soft drink)");
-  if (w.struct === "composite") return `${fr ? "composé" : "composite"} · ${CAT[lang][w.cat!]}`;
+  if (!w) return p.res.excl === "alcohol" ? (fr ? "Liste d'exclusion (alcool)" : "Exclusion list (alcohol)") : (fr ? "Liste d'exclusion (soda)" : "Exclusion list (soft drink)");
+  if (w.struct === "composite") return `${fr ? "Produit composé" : "Composite product"} · ${CAT[lang][w.cat!]}`;
   return [w.fg, w.sub ? SUB[lang][w.sub] : null, withOrigin ? ORIGIN[lang][w.origin!] : null].filter(Boolean).join(" · ");
 }
 
@@ -62,17 +64,17 @@ export function checksScript(lang: Lang): Script {
   const ev: Event[] = [{ at: 150, log: { tag: "file", text: fr ? `Inventaire de ${COLUMNS.length} colonnes sur ${N} lignes` : `Inventory of ${COLUMNS.length} columns over ${N} rows` } }];
   const shown = FILL.filter((f) => f.rate < 1);
   spread(shown.length, 500, 2100, 3).forEach((at, i) => ev.push({ at, log: { tag: "file", text: `${COLUMN_NAMES[lang][shown[i].i]}${fr ? " :" : ":"} ${fmtPct(shown[i].rate, lang, 0)} ${fr ? "rempli" : "filled"}` } }));
-  const a = ANOMALIES.find((x) => x.id === "ean")!, w = ANOMALIES.find((x) => x.id === "weight")!;
+  const a = ANOMALIES.find((x) => x.id === "ingredients")!, w = ANOMALIES.find((x) => x.id === "weight")!;
   const row = fr ? "ligne" : "row";
   ev.push(
     { at: 2300, mark: "fill" },
-    { at: 2600, log: { tag: "ean", text: fr ? `${N} codes-barres vérifiés par la clé de contrôle GS1` : `${N} barcodes checked against the GS1 check digit` } },
-    { at: 3200, log: { tag: "warn", text: fr ? `${row} ${a.row + 1} ${label(PRODUCTS[a.row], lang)} : ${a.from}, clé de contrôle fausse` : `${row} ${a.row + 1} ${label(PRODUCTS[a.row], lang)}: ${a.from} fails the check digit`, warn: true }, mark: "anom:ean" },
-    { at: 3700, log: { tag: "ean", text: fr ? "Aucun doublon · aucun code interne (préfixes 02, 20 à 29)" : "No duplicate codes · no internal codes (prefix 02, 20 to 29)" } },
+    { at: 2600, log: { tag: "ean", text: fr ? `${N} codes-barres vérifiés par la clé de contrôle GS1 : tous valides · aucun doublon` : `${N} barcodes checked against the GS1 check digit: all valid · no duplicates` } },
+    { at: 3100, log: { tag: "file", text: fr ? "Listes d'ingrédients comparées au nom et au code-barres de chaque produit" : "Ingredient lists compared with each product's name and barcode" } },
+    { at: 3600, log: { tag: "warn", text: fr ? `${row} ${a.row + 1} ${label(PRODUCTS[a.row], lang)} : la liste d'ingrédients est celle d'un autre produit (pommes de terre, huiles végétales, sel) · le code-barres fait foi` : `${row} ${a.row + 1} ${label(PRODUCTS[a.row], lang)}: the ingredient list belongs to another product (potatoes, vegetable oils, salt) · the barcode is trusted`, warn: true }, mark: "anom:ingredients" },
     { at: 4200, log: { tag: "weight", text: fr ? `${N - 1} poids nets sur ${N}` : `${N - 1} of ${N} net weights present` } },
     { at: 4700, log: { tag: "warn", text: fr ? `${row} ${w.row + 1} ${label(PRODUCTS[w.row], lang)} : poids net manquant · "175G" lu sur le libellé caisse` : `${row} ${w.row + 1} ${label(PRODUCTS[w.row], lang)}: net weight missing · "175G" read from the till label`, warn: true }, mark: "anom:weight" },
     { at: 5300, log: { tag: "scope", text: fr ? `${row} ${idx("lotus") + 1} ${label(P("lotus"), lang)} → non alimentaire, hors des deux périmètres` : `${row} ${idx("lotus") + 1} ${label(P("lotus"), lang)} → non-food, out of both scopes` } },
-    { at: 5800, log: { tag: "scope", text: fr ? `Appendix A, WWF seulement : ${label(P("cola"), lang)} (soda), ${label(P("beer"), lang)} (alcool)` : `Appendix A, WWF only: ${label(P("cola"), lang)} (soft drink), ${label(P("beer"), lang)} (alcohol)` } },
+    { at: 5800, log: { tag: "scope", text: fr ? `Liste d'exclusion WWF : ${label(P("cola"), lang)} (soda), ${label(P("beer"), lang)} (alcool)` : `WWF exclusion list: ${label(P("cola"), lang)} (soft drink), ${label(P("beer"), lang)} (alcohol)` } },
     { at: 6250, log: { tag: "scope", text: fr ? `Périmètre WWF : ${PRODUCTS.filter((p) => p.res.inWwf).length} produits` : `WWF scope: ${PRODUCTS.filter((p) => p.res.inWwf).length} products` } },
     { at: 6650, log: { tag: "scope", text: fr ? `Périmètre Protein Tracker : ${IN_PT.length} produits, toute l'alimentation` : `Protein Tracker scope: ${IN_PT.length} products, all food` }, mark: "scope" },
     { at: 7000, log: { tag: "warn", text: fr ? "2 anomalies attendent une décision" : "2 anomalies need a decision", warn: true } },
@@ -83,7 +85,7 @@ export function checksScript(lang: Lang): Script {
 // ------------------------------------------------------------ 3 · classification
 export function classifyScript(lang: Lang): Script {
   const fr = lang === "fr";
-  const ev: Event[] = [{ at: 150, log: { tag: "rules", text: fr ? `${IN_PT.length} produits à classer · base de référence Altera, puis modèle de langage` : `${IN_PT.length} products to classify · Altera reference base, then the language model` } }];
+  const ev: Event[] = [{ at: 150, log: { tag: "rules", text: fr ? `${IN_PT.length} produits à classer · base de référence Altera d'abord, puis modèle de langage pour le reste` : `${IN_PT.length} products to classify · Altera reference database first, then a language model for anything remaining` } }];
   const out = P("lotus");
   ev.push({ at: 350, mark: `cls:${idx(out.key)}`, log: { tag: "scope", text: fr ? `${label(out, lang)} → hors périmètre, non alimentaire : non classé` : `${label(out, lang)} → out of scope, non-food: not classified` } });
   const ref = IN_PT.filter((p) => p.res.route === "reference");
@@ -110,7 +112,7 @@ const GLOSS: Record<Lang, Record<string, string>> = {
 };
 const matched = (p: Product & { key: string }, lang: Lang) => `"${p.res.matched}"${GLOSS[lang][p.key] ? ` (${GLOSS[lang][p.key]})` : ""}`;
 
-export function matchScript(lang: Lang): Script {
+export function matchScript(lang: Lang, decisions: Decisions): Script {
   const fr = lang === "fr";
   const prot = ANOMALIES.find((a) => a.id === "protein")!;
   const declared = IN_PT.filter((p) => p.res.protSrc === "declared");
@@ -122,7 +124,7 @@ export function matchScript(lang: Lang): Script {
   const g = (p: Product) => `${fmtNum(p.res.prot, lang)} g`;
   spread(by("reference").length, 2500, 3300, 17).forEach((at, i) => {
     const p = by("reference")[i];
-    ev.push({ at, mark: `prot:${idx(p.key)}`, log: { tag: "ref", text: fr ? `${label(p, lang)} : base de référence Altera, par code-barres → ${g(p)}` : `${label(p, lang)}: Altera reference base, by barcode → ${g(p)}` } });
+    ev.push({ at, mark: `prot:${idx(p.key)}`, log: { tag: "ref", text: fr ? `${label(p, lang)} : base de référence Altera, par code-barres → ${g(p)}` : `${label(p, lang)}: Altera reference database, by barcode → ${g(p)}` } });
   });
   spread(by("off").length, 3500, 4800, 19).forEach((at, i) => {
     const p = by("off")[i];
@@ -132,7 +134,6 @@ export function matchScript(lang: Lang): Script {
     const p = by("ciqual")[i];
     ev.push({ at, mark: `prot:${idx(p.key)}`, log: { tag: "ciqual", text: `${label(p, lang)}${fr ? " : rapprochement par nom" : ": name match"} ${matched(p, lang)}, ${fr ? "similarité" : "similarity"} ${fmtNum(SIM[p.key], lang, 2)} → ${g(p)}` } });
   });
-  for (const p of by("median")) ev.push({ at: 5950, mark: `prot:${idx(p.key)}`, log: { tag: "median", text: fr ? `${label(p, lang)} : médiane du segment "${segment(p.raw.segment, lang)}" (n = 6) → ${g(p)}` : `${label(p, lang)}: median of the segment "${p.raw.segment}" (n = 6) → ${g(p)}` } });
 
   const one = IN_PT.filter((p) => p.res.split === "one_side");
   const zero = IN_PT.filter((p) => p.res.split === "zero");
@@ -142,9 +143,12 @@ export function matchScript(lang: Lang): Script {
   zero.forEach((p) => ev.push({ at: 7150, mark: `split:${idx(p.key)}` }));
   const n = P("nutella"), l = P("lasagne"), pr = P("pringles"), pz = P("pizza");
   const pl = (p: Product) => `${fr ? "végétal" : "plant"} ${fmtPct(p.res.plant, lang, 0)} · ${fr ? "niveau" : "level"} ${p.res.level}`;
+  const kept = decisions.ingredients === "declined";
   ev.push(
-    { at: 7550, mark: `split:${idx(n.key)}`, log: { tag: "split", text: fr ? `${label(n, lang)} : liste d'ingrédients (noisettes 13 %, cacao 7,4 %, lait écrémé en poudre 6,6 %) → ${pl(n)}` : `${label(n, lang)}: ingredient list (hazelnuts 13%, cocoa 7.4%, skimmed milk powder 6.6%) → ${pl(n)}` } },
-    { at: 8050, mark: `split:${idx(l.key)}`, log: { tag: "split", text: fr ? `${label(l, lang)} : liste d'ingrédients (bœuf 13,9 %, béchamel 33 %, emmental 2,7 %) → ${pl(l)}` : `${label(l, lang)}: ingredient list (beef 13.9%, béchamel 33%, emmental 2.7%) → ${pl(l)}` } },
+    { at: 7550, mark: `split:${idx(n.key)}`, log: { tag: "split", text: kept
+      ? (fr ? `${label(n, lang)} : liste d'ingrédients telle que reçue (pommes de terre 66 %, huiles végétales, sel) → végétal 100 % · niveau A` : `${label(n, lang)}: ingredient list as received (potatoes 66%, vegetable oils, salt) → plant 100% · level A`)
+      : (fr ? `${label(n, lang)} : liste d'ingrédients (noisettes 13 %, cacao 7,4 %, lait écrémé en poudre 6,6 %) → ${pl(n)}` : `${label(n, lang)}: ingredient list (hazelnuts 13%, cocoa 7.4%, skimmed milk powder 6.6%) → ${pl(n)}`) } },
+    { at: 8050, mark: `split:${idx(l.key)}`, log: { tag: "split", text: fr ? `${label(l, lang)} : béchamel en tête de liste → Animal core · ses protéines suivent son groupe : 100 % animal` : `${label(l, lang)}: béchamel first in the list → Animal core · its protein follows its group: 100% animal` } },
     { at: 8550, mark: `split:${idx(pr.key)}`, log: { tag: "nevo", text: fr ? `${label(pr, lang)} : NEVO ${matched(pr, lang)}, choisi parmi 4 candidats → ${pl(pr)}` : `${label(pr, lang)}: NEVO ${matched(pr, lang)}, chosen from 4 candidates → ${pl(pr)}` } },
     { at: 9150, mark: `split:${idx(pz.key)}`, log: { tag: "nevo", text: fr ? `${label(pz, lang)} : pas de liste d'ingrédients · candidats NEVO Pizza margherita, Pizza salami, Pizza tonno · le modèle s'abstient → convention 50/50 · niveau B` : `${label(pz, lang)}: no ingredient list · NEVO candidates Pizza margherita, Pizza salami, Pizza tonno · the model abstains → 50/50 convention · level B` } },
     { at: 9600, log: { tag: "warn", warn: true, text: fr ? "1 valeur attend une décision" : "1 value needs a decision" } },
@@ -153,9 +157,9 @@ export function matchScript(lang: Lang): Script {
 }
 
 // ------------------------------------------------------------ 5 · ratios
-export function ratiosScript(lang: Lang): Script {
+export function ratiosScript(lang: Lang, decisions: Decisions): Script {
   const fr = lang === "fr";
-  const R = RESULTS;
+  const R = resultsFor(decisions);
   const pc = (v: number, d = 1) => fmtPct(v, lang, d);
   return {
     total: 5200,
@@ -166,7 +170,7 @@ export function ratiosScript(lang: Lang): Script {
       { at: 2200, mark: "kpi:fg2", log: { tag: "calc", text: fr ? `WWF · part végétale FG2 ${pc(R.wwf.fg2)}` : `WWF · FG2 plant share ${pc(R.wwf.fg2)}` } },
       { at: 2800, mark: "kpi:diet", log: { tag: "calc", text: fr ? `WWF · part végétale de l'alimentation ${pc(R.wwf.diet)} · composés ${pc(R.wwf.compositeShare)} des tonnes, présentés à part` : `WWF · whole diet plant share ${pc(R.wwf.diet)} · composites ${pc(R.wwf.compositeShare)} of tonnes, reported apart` } },
       { at: 3600, mark: "kpi:pt", log: { tag: "calc", text: fr ? `Protein Tracker · ${fmtNum(R.pt.plantT, lang)} t végétales ÷ ${fmtNum(R.pt.protT, lang)} t de protéines = ${pc(R.pt.ratio)}` : `Protein Tracker · ${fmtNum(R.pt.plantT, lang)} t plant ÷ ${fmtNum(R.pt.protT, lang)} t protein = ${pc(R.pt.ratio)}` } },
-      { at: 4400, mark: "detail", log: { tag: "calc", text: fr ? `Détails : 4 classes · 7 groupes d'aliments · ${R.pt.byDept.length} rayons · niveau A ${pc(R.pt.levelA, 0)}` : `Breakdowns: 4 classes · 7 food groups · ${R.pt.byDept.length} departments · level A ${pc(R.pt.levelA, 0)}` } },
+      { at: 4400, mark: "detail", log: { tag: "calc", text: fr ? `Détails : 7 groupes d'aliments WWF · 4 groupes Protein Tracker · ${Object.keys(R.pt.bySub).length} sous-groupes core · niveau A ${pc(R.pt.levelA, 0)}` : `Breakdowns: 7 WWF food groups · 4 Protein Tracker groups · ${Object.keys(R.pt.bySub).length} core sub-groups · level A ${pc(R.pt.levelA, 0)}` } },
     ],
   };
 }
@@ -178,24 +182,25 @@ const byBarcode = IN_PT.filter((p) => p.res.protSrc === "declared" || p.res.prot
 const byName = IN_PT.filter((p) => p.res.protSrc === "off" || p.res.protSrc === "ciqual").length;
 export const CROSS = { a: byBarcode, b: byBarcode - 1, c: byName };
 
-export function qualityScript(lang: Lang): Script {
+export function qualityScript(lang: Lang, decisions: Decisions): Script {
   const n = IN_PT.length;
   const fr = lang === "fr";
+  const keptProt = decisions.protein === "declined";
   const pr = P("pringles"), pz = P("pizza");
   const lines = fr ? [
     `Identités · végétal + animal = total sur ${n} lignes ✓`, "Identités · chaque total égale la somme de son bloc ✓", "Identités · chaque tableau couvre toutes les valeurs de sa colonne ✓",
     "Méthode · aucun groupe d'aliments sur un composé WWF ✓", "Méthode · sous-groupes en FG1, FG2, FG3, FG5 seulement ✓", "Méthode · facteur laitier ×10 sur le fromage seulement (1 produit) ✓",
-    "Données · bilan d'énergie des valeurs déclarées · 1 valeur remplacée ✓", `Données · ${n} valeurs sur ${n} portent leur source ✓`,
+    `Données · bilan d'énergie des valeurs déclarées · ${keptProt ? "1 valeur conservée telle que déclarée, à confirmer" : "1 valeur remplacée"} ✓`, `Données · ${n} valeurs sur ${n} portent leur source ✓`,
     "Classeur · chaque formule recalculée hors d'Excel · tout concorde ✓", "Classeur · 8 onglets évalués dans un tableur ✓",
-    `Sources · ${CROSS.a} teneurs comparées à Open Food Facts par code-barres : ${CROSS.b} concordent, 1 valeur par paquet déjà remplacée ✓`,
+    `Sources · ${CROSS.a} teneurs comparées à Open Food Facts par code-barres : ${CROSS.b} concordent, 1 valeur par paquet ${keptProt ? "conservée, à confirmer" : "déjà remplacée"} ✓`,
     `Sources · ${CROSS.c} teneurs Open Food Facts et CIQUAL comparées à NEVO par nom : toutes dans la tolérance d'étiquetage UE ✓`,
     `Sources · ${label(pr, lang)} : partage NEVO ${matched(pr, lang)} ${fmtPct(pr.res.plant, lang, 0)} végétal contre la liste d'ingrédients (pomme de terre, farines de riz et de maïs en tête ; lait seulement dans l'assaisonnement) → cohérent ✓`,
   ] : [
     `Identities · plant + animal = total on ${n} rows ✓`, "Identities · every total equals the sum of its block ✓", "Identities · every table covers every value of its column ✓",
     "Methodology · no food group on a WWF composite ✓", "Methodology · sub-groups only in FG1, FG2, FG3, FG5 ✓", "Methodology · ×10 dairy factor on cheese only (1 product) ✓",
-    "Data · energy balance of declared values · 1 value replaced ✓", `Data · ${n} of ${n} values carry their source ✓`,
+    `Data · energy balance of declared values · ${keptProt ? "1 value kept as declared, to confirm" : "1 value replaced"} ✓`, `Data · ${n} of ${n} values carry their source ✓`,
     "Workbook · every formula recomputed outside Excel · all match ✓", "Workbook · 8 tabs evaluated in a spreadsheet ✓",
-    `Sources · ${CROSS.a} protein values against Open Food Facts by barcode: ${CROSS.b} match, 1 per-pack value already replaced ✓`,
+    `Sources · ${CROSS.a} protein values against Open Food Facts by barcode: ${CROSS.b} match, 1 per-pack value ${keptProt ? "kept, to confirm" : "already replaced"} ✓`,
     `Sources · ${CROSS.c} Open Food Facts and CIQUAL values against NEVO by name: all within the EU labelling tolerance ✓`,
     `Sources · ${label(pr, lang)}: NEVO split ${matched(pr, lang)} ${fmtPct(pr.res.plant, lang, 0)} plant against the ingredient list (potato, rice and maize flour first; milk only in the seasoning) → consistent ✓`,
   ];
@@ -212,18 +217,19 @@ export function qualityScript(lang: Lang): Script {
 // the insights report first, then the workbook, the line-level file and the scope statement
 export const DELIVER_TOTAL = 20000;
 export const FILE_WINDOWS: [number, number][] = [[300, 7000], [7000, 13200], [13200, 16200], [16200, 19600]];
-export function deliverScript(lang: Lang): Script {
+export function deliverScript(lang: Lang, decisions: Decisions): Script {
   const fr = lang === "fr";
-  const R = RESULTS;
+  const R = resultsFor(decisions);
+  const f = fmtNum(built.formulas, lang, 0);
   const name = fr ? ["Rapport d'analyse", "Classeur", "Fichier ligne à ligne", "Déclaration de périmètre"] : ["Insights report", "Workbook", "Line-level file", "Scope statement"];
   const steps: string[][] = fr ? [
-    [`page 1/5 · couverture, les ratios en un coup d'œil`, `page 2/5 · le périmètre : ${IN_PT.length} produits, ${fmtNum(R.massT, lang, 0)} t`, "page 3/5 · WWF par groupe d'aliments", "page 4/5 · Protein Tracker par classe et par rayon", "page 5/5 · les leviers : 3 scénarios recalculés"],
-    ["onglets Welcome, Protein Tracker, WWF, By category", "onglets By department, By brand, By product, Data", "1 098 formules écrites · une seule saisie : les volumes", "recalcul dans un tableur : aucune cellule en erreur, ratios conformes"],
+    [`page 1/5 · couverture, les ratios en un coup d'œil`, `page 2/5 · le périmètre : ${IN_PT.length} produits, ${fmtNum(R.massT, lang, 0)} t`, "page 3/5 · WWF par groupe d'aliments", "page 4/5 · Protein Tracker par groupe et par sous-groupe", "page 5/5 · les leviers : 3 scénarios recalculés"],
+    ["onglets Welcome, Protein Tracker, WWF, By category", "onglets By department, By brand, By product, Data", `${f} formules écrites · une seule saisie : les volumes`, "recalcul dans un tableur : aucune cellule en erreur, ratios conformes"],
     [`${N} lignes · 30 colonnes, celles de l'onglet Data`, "source de chaque valeur écrite"],
     ["périmètre couvert · approche produit par produit", "données utilisées · hypothèses de volumes"],
   ] : [
-    ["page 1/5 · cover, the ratios at a glance", `page 2/5 · the scope: ${IN_PT.length} products, ${fmtNum(R.massT, lang, 0)} t`, "page 3/5 · WWF by food group", "page 4/5 · Protein Tracker by class and department", "page 5/5 · the levers: 3 scenarios recalculated"],
-    ["tabs Welcome, Protein Tracker, WWF, By category", "tabs By department, By brand, By product, Data", "1,098 formulas written · one input: volumes", "recalculated in a spreadsheet: no error cell, ratios match"],
+    ["page 1/5 · cover, the ratios at a glance", `page 2/5 · the scope: ${IN_PT.length} products, ${fmtNum(R.massT, lang, 0)} t`, "page 3/5 · WWF by food group", "page 4/5 · Protein Tracker by group and sub-group", "page 5/5 · the levers: 3 scenarios recalculated"],
+    ["tabs Welcome, Protein Tracker, WWF, By category", "tabs By department, By brand, By product, Data", `${f} formulas written · one input: volumes`, "recalculated in a spreadsheet: no error cell, ratios match"],
     [`${N} rows · 30 columns, those of the Data tab`, "source of every value written"],
     ["scope covered · product-level approach", "data used · volume assumptions"],
   ];

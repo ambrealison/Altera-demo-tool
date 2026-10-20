@@ -37,7 +37,7 @@ ROWS = [
     ("soy_drink", "ALPRO SOYA S/SUCRE 1L", "Boisson soja sans sucres, 1 L", "Alpro", "Plant-based", "Plant drinks", 1.0, 61000),
     ("oat_drink", "OATLY BARISTA AVOINE 1L", "Boisson avoine Barista, 1 L", "Oatly", "Plant-based", "Plant drinks", 1.0, 52000),
     ("peas", "D AUCY PETITS POIS XFINS 280G", "Petits pois extra fins, 280 g", "D'aucy", "Grocery", "Canned vegetables", 0.28, 73000),
-    ("compote", "ANDROS COMPOTE POMME 730G", "Compote pomme nature, 730 g", "Andros", "Grocery", "Fruit desserts", 0.73, 88000),
+    ("passata", "MUTTI PASSATA PUREE TOMATE 500G", "Passata di pomodoro, purée de tomates, 500 g", "Mutti", "Grocery", "Tomato sauces", 0.50, 92000),
     ("spaghetti", "BARILLA SPAGHETTI N5 500G", "Spaghetti n°5, 500 g", "Barilla", "Grocery", "Pasta", 0.50, 254000),
     ("bread", "HARRYS PAIN DE MIE NATURE 500G", "Pain de mie 100% mie nature, 500 g", "Harrys", "Bakery", "Sandwich bread", 0.50, 167000),
     ("oats", "QUAKER FLOCONS AVOINE 800G", "Flocons d'avoine, 800 g", "Quaker", "Breakfast", "Cereals", 0.80, 39000),
@@ -71,7 +71,7 @@ EN = {
     "soy_drink": ("ALPRO SOY NO SUGARS 1L", "Soy drink, no sugars, 1 L"),
     "oat_drink": ("OATLY BARISTA OAT DRINK 1L", "Barista oat drink, 1 L"),
     "peas": ("D AUCY EXTRA FINE PEAS 280G", "Extra fine garden peas, 280 g"),
-    "compote": ("ANDROS APPLE COMPOTE 730G", "Apple compote, 730 g"),
+    "passata": ("MUTTI PASSATA SIEVED TOMATOES 500G", "Passata di pomodoro, sieved tomatoes, 500 g"),
     "spaghetti": ("BARILLA SPAGHETTI N5 500G", "Spaghetti n°5, 500 g"),
     "bread": ("HARRYS WHITE SANDWICH BREAD 500G", "Crustless white sandwich bread, 500 g"),
     "oats": ("QUAKER ROLLED OATS 800G", "Rolled oats, 800 g"),
@@ -93,7 +93,7 @@ ING_EN = {
     "tofu": "Tofu* 94% (soya beans* 55%, water, coagulants: magnesium chloride, calcium sulphate), sunflower oil*, vegetable stock (sea salt, yeast extract*, sunflower oil*, leeks*, carrots*, celery*, mace*, nutmeg*, parsley*), concentrated lemon juice*.",
     "soy_drink": "Soya base (98.8%) [water, hulled soya beans (8.7%)], acidity regulators (potassium phosphates), calcium (calcium carbonate), flavourings, sea salt, stabiliser (gellan gum), vitamin B2, vitamin B12, vitamin D2.",
     "oat_drink": "Water, oats 10%, rapeseed oil, acidity regulator (dipotassium phosphate), minerals (calcium carbonate, potassium iodide), salt, vitamins (D2, riboflavin and B12).",
-    "compote": "Apples (purée and concentrated purée) 99.9%, concentrated acerola juice",
+    "passata": "Tomatoes 99.5%, salt",
     "spaghetti": "Durum WHEAT semolina. May contain traces of SOY and MUSTARD.",
     "bread": "WHEAT flour 63%, water, sugar, rapeseed oil, salt, vinegar, yeast, broad bean flour, WHEAT gluten, flavouring (contains alcohol), acerola extract. May contain traces of EGG, SOY, MILK, NUTS and SESAME SEEDS.",
     "pringles": "Dehydrated potatoes, vegetable oils (sunflower, maize), rice flour, WHEAT starch, maize flour, sour cream and onion seasoning (WHEAT starch, flavour enhancers {monosodium glutamate, disodium guanylate, disodium inosinate}, onion powder, maltodextrin, salt, dextrose, sugar, sweet whey powder {MILK}, potato starch, modified maize starch, acids {citric acid, lactic acid, malic acid}, sour cream powder {MILK}, flavourings {MILK}, yeast extract, glucose syrup, MILK protein, rice flour), emulsifier (E471), maltodextrin, salt, colour (annatto).",
@@ -129,8 +129,8 @@ ENGINE = {
     "almonds": ("model", 0.97, W("whole", "FG1", "nuts", "plant"), "plant_core", "off", 26.0, "one_side", 1, None),
     "soy_drink": ("reference", 1, W("whole", "FG2", "dairy_alternatives", "plant"), "plant_core", "declared", None, "one_side", 1, None),
     "oat_drink": ("model", 0.95, W("whole", "FG2", "dairy_alternatives", "plant"), "plant_core", "declared", None, "one_side", 1, None),
-    "peas": ("model", 0.93, W("whole", "FG4", None, "plant"), "plant_non_core", "ciqual", 5.0, "one_side", 1, "Petits pois, appertisés, égouttés"),
-    "compote": ("model", 0.91, W("whole", "FG4", None, "plant"), "plant_non_core", "median", 0.4, "one_side", 1, "Fruit desserts"),
+    "peas": ("model", 0.93, W("whole", "FG1", "pulses", "plant"), "plant_core", "ciqual", 5.0, "one_side", 1, "Petits pois, appertisés, égouttés"),
+    "passata": ("model", 0.96, W("whole", "FG4", None, "plant"), "plant_non_core", "declared", None, "one_side", 1, None),
     "spaghetti": ("reference", 1, W("whole", "FG5", "refined_grain", "plant"), "plant_non_core", "off", 13.0, "one_side", 1, None),
     "bread": ("model", 0.94, W("whole", "FG5", "refined_grain", "plant"), "plant_non_core", "declared", None, "one_side", 1, None),
     "oats": ("model", 0.95, W("whole", "FG5", "whole_grain", "plant"), "plant_non_core", "declared", None, "one_side", 1, None),
@@ -138,7 +138,7 @@ ENGINE = {
     "pringles": ("model", 0.93, W("whole", "FG7", None, "animal"), "composite", "off", 6.0, "nevo", 0.92, "Chips, gearomatiseerd"),
     "nutella": ("reference", 1, W("whole", "FG7", None, "animal"), "composite", "declared", None, "ingredients", 0.56, None),
     "lays": ("model", 0.97, W("whole", "FG7", None, "plant"), "plant_non_core", "declared", None, "one_side", 1, None),
-    "lasagne": ("model", 0.95, W("composite", cat="meat_based"), "composite", "declared", None, "ingredients", 0.21, None),
+    "lasagne": ("model", 0.95, W("composite", cat="meat_based"), "animal_core", "declared", None, "group", 0, None),
     "pizza": ("model", 0.88, W("composite", cat="vegetarian"), "composite", "off", 11.8, "convention", 0.5, None),
     "cola": ("reference", 1, None, "plant_non_core", "declared", None, "zero", 1, None),
     "beer": ("reference", 1, None, "plant_non_core", "declared", None, "zero", 1, None),
@@ -149,7 +149,15 @@ DAIRY = {"camembert": 10}
 NO_INGREDIENTS = {"beef_mince", "chicken", "tuna", "eggs", "camembert", "milk", "butter", "oil", "almonds", "peas", "oats", "mash", "pizza", "lotus"}
 WRONG_PROTEIN = {"spaghetti": 65.0}          # a per-pack figure typed as per 100 g (13 g × 500 g)
 MISSING_WEIGHT = {"pringles"}                # read from the till label
-WRONG_EAN = {"yogurt": "3033491147063"}      # last digit mistyped
+# a row carrying another product's ingredient list: the barcode is trusted, the list comes back by barcode
+WRONG_INGREDIENTS = {"nutella": "lays"}
+# what each correction becomes when the presenter declines it: the value as received is kept
+DECLINED = {"ingredients": {"plant": 1.0}, "weight": {"weightKg": 0, "weightSrc": "missing"}, "protein": {"prot": 65.0, "protSrc": "declared"}}
+# Protein Tracker sub-groups of the two core groups (plant core: the GPA glossary; animal core: the Altera template)
+PT_SUB = {"beef_mince": "red_meat", "ham": "red_meat", "chicken": "poultry", "tuna": "fish_seafood", "eggs": "eggs", "camembert": "cheese",
+          "yogurt": "milk_yoghurts", "milk": "milk_yoghurts", "butter": "other_animal", "lasagne": "other_animal",
+          "lentils": "beans_pulses", "peas": "beans_pulses", "almonds": "nuts_seeds", "plant_mince": "plant_alternatives",
+          "tofu": "plant_alternatives", "soy_drink": "plant_alternatives", "oat_drink": "plant_alternatives"}
 
 def fmt(v):
     if v is None: return ""
@@ -162,14 +170,14 @@ for i, (key, till, name, brand, dept, seg, weight, units) in enumerate(ROWS):
     declared = eng is not None and eng[4] == "declared"
     ing_fr = "" if key in NO_INGREDIENTS else ING_FR.get(key, (s["ingredients"] or "").replace("\n", " ").replace("_", ""))
     raw = {
-        "ean": WRONG_EAN.get(key, s["code"]),
+        "ean": s["code"],
         "till_label": EN[key][0],
         "product_name": EN[key][1],
         "brand": brand,
         "department": dept,
         "segment": seg,
         "net_weight_kg": "" if key in MISSING_WEIGHT or weight is None else fmt(weight),
-        "ingredients": "" if key in NO_INGREDIENTS else ING_EN[key],
+        "ingredients": "" if key in NO_INGREDIENTS else ING_EN[WRONG_INGREDIENTS.get(key, key)],
         "energy_kcal_100g": fmt(round(s["kcal"], 1)) if (declared or key in WRONG_PROTEIN) and s["kcal"] is not None else "",
         "fat_g_100g": fmt(s["fat"]) if (declared or key in WRONG_PROTEIN) else "",
         "carbs_g_100g": fmt(s["carbs"]) if (declared or key in WRONG_PROTEIN) else "",
@@ -189,11 +197,16 @@ for i, (key, till, name, brand, dept, seg, weight, units) in enumerate(ROWS):
                "plant": plant, "split": split, "level": None if split == "zero" else ("B" if split == "convention" else "A")}
         if key in EXCL: res["excl"] = EXCL[key]
         if matched: res["matched"] = matched
+        if key in PT_SUB: res["ptSub"] = PT_SUB[key]
+    if key in WRONG_INGREDIENTS:
+        other = WRONG_INGREDIENTS[key]
+        anomalies.append({"id": "ingredients", "row": i, "from": ING_EN[other], "to": ING_EN[key],
+                          "fromFr": (SNAP[other]["ingredients"] or "").replace("_", ""), "toFr": ing_fr, "declined": DECLINED["ingredients"]})
+        ing_fr = (SNAP[other]["ingredients"] or "").replace("_", "")
+    if key in MISSING_WEIGHT: anomalies.append({"id": "weight", "row": i, "from": "", "to": fmt(weight), "declined": DECLINED["weight"]})
+    if key in WRONG_PROTEIN: anomalies.append({"id": "protein", "row": i, "from": fmt(WRONG_PROTEIN[key]), "to": fmt(s["protein"]), "declined": DECLINED["protein"]})
     assert bool(raw["ingredients"]) == bool(ing_fr), key
     products.append({"key": key, "raw": raw, "fr": {"till_label": till, "product_name": name, "ingredients": ing_fr}, "res": res})
-    if key in WRONG_EAN: anomalies.append({"id": "ean", "row": i, "from": WRONG_EAN[key], "to": s["code"]})
-    if key in MISSING_WEIGHT: anomalies.append({"id": "weight", "row": i, "from": "", "to": fmt(weight)})
-    if key in WRONG_PROTEIN: anomalies.append({"id": "protein", "row": i, "from": fmt(WRONG_PROTEIN[key]), "to": fmt(s["protein"])})
 
 # the energy check must pass on every declared value except the planted one
 for p in products:
@@ -217,7 +230,7 @@ SEG_FR = {"Minced beef": "Viande hachée", "Chicken": "Poulet", "Cooked ham": "J
           "Eggs": "Œufs", "Soft cheese": "Fromages à pâte molle", "Yoghurts": "Yaourts", "Milk": "Lait", "Butter": "Beurre",
           "Oils": "Huiles", "Canned pulses": "Légumineuses cuisinées", "Meat alternatives": "Alternatives à la viande", "Tofu": "Tofu",
           "Nuts and dried fruit": "Fruits secs", "Plant drinks": "Boissons végétales", "Canned vegetables": "Légumes en conserve",
-          "Fruit desserts": "Compotes", "Pasta": "Pâtes", "Sandwich bread": "Pain de mie", "Cereals": "Céréales",
+          "Tomato sauces": "Sauces tomate", "Pasta": "Pâtes", "Sandwich bread": "Pain de mie", "Cereals": "Céréales",
           "Potato flakes": "Purées en flocons", "Crisps": "Chips", "Spreads": "Pâtes à tartiner", "Pasta dishes": "Plats de pâtes",
           "Pizzas": "Pizzas", "Soft drinks": "Sodas", "Beer": "Bières", "Paper": "Papier"}
 NUMERIC = {"net_weight_kg", "energy_kcal_100g", "fat_g_100g", "carbs_g_100g", "protein_g_100g"}

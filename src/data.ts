@@ -1,6 +1,6 @@
-// The demo catalogue (scripts/build_dataset.py): 30 real products, a fictitious retailer.
+// The catalogue (scripts/build_dataset.py): 30 real products, a fictitious retailer.
 import raw from "./data/catalogue.json";
-import type { Anomaly, Lang, Product, PtClass, RawRow } from "./types";
+import type { Anomaly, AnomalyId, Decisions, Lang, Product, PtClass, PtSub, RawRow } from "./types";
 
 interface Catalogue {
   columns: (keyof RawRow)[];
@@ -26,11 +26,27 @@ export const IN_WWF = PRODUCTS.filter((p) => p.res.inWwf);
 /** One demo file per language: the French one has French headers, semicolons and decimal commas. */
 export const DEMO_FILES: Record<Lang, string> = { en: "harbour_market_catalogue.csv", fr: "catalogue_harbour_market.csv" };
 export const BOOKING_URL = "https://calendar.google.com/appointments/schedules/AcZssZ3Ft80cRX9S775isS1JromPC4cnU7qQvtdJC6jh7ePlIEe8xlKqjuxUsqtR-qw30JNnPhbFGbyO";
-export const DOWNLOADS = {
-  workbook: "downloads/HarbourMarket_Protein_Ratio_DEMO.xlsx",
-  csv: "downloads/HarbourMarket_products_DEMO.csv",
-  report: { en: "downloads/HarbourMarket_Insights_Report_EN.pdf", fr: "downloads/HarbourMarket_Insights_Report_FR.pdf" },
-  scope: { en: "downloads/HarbourMarket_Scope_Statement_EN.pdf", fr: "downloads/HarbourMarket_Scope_Statement_FR.pdf" },
+// ------------------------------------------------------------ the presenter's decisions
+/** The anomalies in a fixed order: the deliverables were built for each combination of decisions. */
+export const ANOMALY_ORDER: AnomalyId[] = ["ingredients", "weight", "protein"];
+export const variantKey = (d: Decisions) => ANOMALY_ORDER.map((id) => (d[id] === "declined" ? "d" : "a")).join("");
+
+/** The products once the presenter has decided: a declined correction keeps the value as received. */
+export function productsFor(d: Decisions): (Product & { key: string })[] {
+  return PRODUCTS.map((p, i) => {
+    const a = ANOMALIES.find((x) => x.row === i && d[x.id] === "declined");
+    return a ? { ...p, res: { ...p.res, ...a.declined } } : p;
+  });
+}
+
+export const downloads = (d: Decisions) => {
+  const v = `downloads/${variantKey(d)}`;
+  return {
+    report: { en: `${v}/HarbourMarket_Insights_Report_EN.pdf`, fr: `${v}/HarbourMarket_Insights_Report_FR.pdf` },
+    workbook: `${v}/HarbourMarket_Protein_Ratio.xlsx`,
+    csv: `${v}/HarbourMarket_products.csv`,
+    scope: { en: `${v}/HarbourMarket_Scope_Statement_EN.pdf`, fr: `${v}/HarbourMarket_Scope_Statement_FR.pdf` },
+  };
 };
 
 // ------------------------------------------------------------ the file the presenter drops
@@ -72,30 +88,35 @@ export function isDemoFile(text: string): boolean {
 }
 
 // ------------------------------------------------------------ the two ratios
-const kg = (p: Product) => Number(p.raw.units_sold_12m) * p.res.weightKg;
+const kg = (p: Product) => Number(p.raw.units_sold_12m) * (p.res.weightKg || 0);
 
 export const FOOD_GROUPS = ["FG1", "FG2", "FG3", "FG4", "FG5", "FG6", "FG7"];
 export const PT_CLASSES: PtClass[] = ["animal_core", "composite", "plant_non_core", "plant_core"];
+/** The sub-groups of the two core groups, in reading order. */
+export const PT_SUBS: { group: PtClass; subs: PtSub[] }[] = [
+  { group: "plant_core", subs: ["beans_pulses", "nuts_seeds", "spreads", "plant_alternatives"] },
+  { group: "animal_core", subs: ["milk_yoghurts", "red_meat", "poultry", "eggs", "fish_seafood", "cheese", "other_animal"] },
+];
 
-function compute() {
+function compute(products: (Product & { key: string })[]) {
+  const inPt = products.filter((p) => p.res.inPt);
+  const inWwf = products.filter((p) => p.res.inWwf);
   // Protein Tracker: tonnes of protein, across all food
   let prot = 0, plant = 0, levelA = 0;
   const byClass = Object.fromEntries(PT_CLASSES.map((c) => [c, 0])) as Record<PtClass, number>;
-  const byDept = new Map<string, { prot: number; plant: number }>();
-  for (const p of IN_PT) {
+  const bySub: Partial<Record<PtSub, number>> = {};
+  for (const p of inPt) {
     const t = (kg(p) * p.res.prot) / 100;
     prot += t; plant += t * p.res.plant;
     byClass[p.res.pt!] += t;
     if (p.res.level === "A") levelA += t;
-    const d = byDept.get(p.raw.department) ?? { prot: 0, plant: 0 };
-    d.prot += t; d.plant += t * p.res.plant;
-    byDept.set(p.raw.department, d);
+    if (p.res.ptSub) bySub[p.res.ptSub] = (bySub[p.res.ptSub] ?? 0) + t;
   }
   // WWF: tonnes of product, whole products by food group in dairy equivalents, composites apart
   const groups = Object.fromEntries(FOOD_GROUPS.map((g) => [g, { plant: 0, animal: 0 }])) as Record<string, { plant: number; animal: number }>;
   const cats: Record<string, number> = { meat_based: 0, seafood_based: 0, vegetarian: 0, vegan: 0 };
   let whole = 0, composite = 0;
-  for (const p of IN_WWF) {
+  for (const p of inWwf) {
     const t = kg(p) / 1000;
     const w = p.res.wwf!;
     if (w.struct === "composite") { composite += t; cats[w.cat!] += t; continue; }
@@ -109,12 +130,14 @@ function compute() {
   };
   return {
     pt: { ratio: plant / prot, protT: prot / 1000, plantT: plant / 1000, levelA: levelA / prot, byClass: Object.fromEntries(PT_CLASSES.map((c) => [c, byClass[c] / prot])) as Record<PtClass, number>,
-      byDept: [...byDept].map(([d, v]) => ({ dept: d, t: v.prot / 1000, ratio: v.prot ? v.plant / v.prot : 0 })).sort((a, b) => b.t - a.t) },
+      bySub: Object.fromEntries(Object.entries(bySub).map(([k, v]) => [k, v / 1000])) as Partial<Record<PtSub, number>> },
     wwf: { fg1: share(["FG1"]), fg2: share(["FG2"]), diet: share(FOOD_GROUPS), groups, cats, wholeT: whole, compositeT: composite, compositeShare: composite / (whole + composite) },
-    massT: IN_PT.reduce((a, p) => a + kg(p), 0) / 1000,
+    massT: inPt.reduce((a, p) => a + kg(p), 0) / 1000,
   };
 }
-export const RESULTS = compute();
+export type Results = ReturnType<typeof compute>;
+export const resultsFor = (d: Decisions): Results => compute(productsFor(d));
+export const RESULTS = resultsFor({});
 export const PHD = { fg1: 0.6, diet: 0.74 };
 
 export const fmtNum = (v: number, lang: string, d = 1) => v.toLocaleString(lang === "fr" ? "fr-FR" : "en-GB", { minimumFractionDigits: d, maximumFractionDigits: d });

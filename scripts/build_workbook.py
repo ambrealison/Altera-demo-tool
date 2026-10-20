@@ -1,15 +1,18 @@
-"""Build the workbook and the line-level file the demo offers at its last step.
+"""Build the workbook and the line-level file offered at the last step.
 
     python3 scripts/build_workbook.py
 
 The workbook is Altera's results file template (scripts/assets/workbook_template.xlsx), filled
-with the 30 products of the demo catalogue (src/data/catalogue.json): its eight tabs, styles,
+with the 30 products of the catalogue (src/data/catalogue.json): its eight tabs, styles,
 logos and charts are kept; its fifty example rows are replaced by ours, every formula range is
 resized to them, and the lists (categories, departments, brands, products) are rewritten.
 
-Writes:
-    public/downloads/HarbourMarket_Protein_Ratio_DEMO.xlsx   the filled template
-    public/downloads/HarbourMarket_products_DEMO.csv         the Data tab, values computed
+Writes, for each combination of the presenter's decisions on the three anomalies (accepted or
+declined; the folder name is one letter per anomaly, a or d, in the order ingredients, weight,
+protein):
+    public/downloads/<aaa>/HarbourMarket_Protein_Ratio.xlsx   the filled template
+    public/downloads/<aaa>/HarbourMarket_products.csv         the Data tab, values computed
+and src/data/deliverables.json, the number of formulas the app's log announces.
 
 openpyxl writes formulas without evaluating them: LibreOffice recalculates the workbook, every
 cell is checked for errors, and the figures that matter are compared with Python's. The script
@@ -36,8 +39,9 @@ ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "src" / "data" / "catalogue.json"
 TEMPLATE = ROOT / "scripts" / "assets" / "workbook_template.xlsx"
 OUT = ROOT / "public" / "downloads"
-XLSX = OUT / "HarbourMarket_Protein_Ratio_DEMO.xlsx"
-CSV = OUT / "HarbourMarket_products_DEMO.csv"
+XLSX_NAME, CSV_NAME = "HarbourMarket_Protein_Ratio.xlsx", "HarbourMarket_products.csv"
+ORDER = ["ingredients", "weight", "protein"]
+VARIANTS = [a + b + c for a in "ad" for b in "ad" for c in "ad"]
 TEMPLATE_ROWS = 51          # the template's Data tab: header + 50 example products
 
 # ------------------------------------------------------------ vocabulary of the template's Data tab
@@ -55,9 +59,22 @@ def cols(a: str, b: str) -> list[str]:
     return [get_column_letter(i) for i in range(column_index_from_string(a), column_index_from_string(b) + 1)]
 
 
-def rows_of(cat: dict) -> list[dict]:
+def decided(cat: dict, variant: str) -> list[dict]:
+    """The products once the presenter has decided: a declined correction keeps the value as received."""
+    products = [dict(p, res=dict(p["res"])) for p in cat["products"]]
+    for a, letter in zip(sorted(cat["anomalies"], key=lambda a: ORDER.index(a["id"])), variant):
+        p = products[a["row"]]
+        p["declined"] = p.get("declined", set()) | ({a["id"]} if letter == "d" else set())
+        if letter == "d":
+            p["res"].update(a["declined"])
+        elif a["id"] == "ingredients":
+            p["raw"] = dict(p["raw"], ingredients=a["to"])      # the list found by barcode
+    return products
+
+
+def rows_of(cat: dict, variant: str = "aaa") -> list[dict]:
     """One Data row per product, in the template's columns, sorted by sales rank."""
-    products = cat["products"]
+    products = decided(cat, variant)
     rank = {p["key"]: i + 1 for i, p in enumerate(sorted(products, key=lambda p: -int(p["raw"]["units_sold_12m"])))}
     out = []
     for p in products:
@@ -77,15 +94,17 @@ def rows_of(cat: dict) -> list[dict]:
         if not in_pt:
             src = split = "outside scope"
         else:
-            src = {"declared": "retailer", "reference": "Altera reference base", "off": "OpenFoodFacts", "ciqual": "CIQUAL",
+            src = {"declared": "retailer", "reference": "Altera reference database", "off": "OpenFoodFacts", "ciqual": "CIQUAL",
                    "median": f"median of the category ({raw['segment']})"}[res["protSrc"]]
             if p["key"] == "spaghetti":
-                src = "OpenFoodFacts · retailer value implausible, corrected (per-pack figure)"
+                src = ("retailer · implausible (per-pack figure), kept as declared: to confirm" if "protein" in p.get("declined", ())
+                       else "OpenFoodFacts · retailer value implausible, corrected (per-pack figure)")
             split = {"one_side": ("exact · all ingredients on the same side" if raw["ingredients"]
                                   else "deduced from the origin of the product · the protein follows its single side"),
                      "ingredients": "exact · percentages declared in the ingredient list",
                      "nevo": f"NEVO · plant and animal protein of the matched food ({res.get('matched')})",
                      "convention": "50/50 by convention · not deducible from the ingredients",
+                     "group": f"follows its Protein Tracker group ({PT_CLASS[res['pt']].replace('_', ' ')}) · all animal",
                      "zero": "no protein"}[res["split"]]
         model = round(res["conf"] * 100) if res["route"] == "model" else None
         out.append({
@@ -95,8 +114,8 @@ def rows_of(cat: dict) -> list[dict]:
             "L": prot, "M": plant, "N": round(prot - plant, 2) if prot is not None else None,
             "O": res["weightKg"] or None, "P": rank[p["key"]], "Q": int(raw["units_sold_12m"]),
             "U": raw["ingredients"] or None, "V": "Yes" if in_wwf else "No", "W": "Yes" if in_pt else "No",
-            "X": (model if model is not None else "Altera reference base") if in_wwf else "outside scope",
-            "Y": (model if model is not None else "Altera reference base") if in_pt else "outside scope",
+            "X": (model if model is not None else "Altera reference database") if in_wwf else "outside scope",
+            "Y": (model if model is not None else "Altera reference database") if in_pt else "outside scope",
             "Z": src, "AA": split, "AB": (res["level"] or "A") if in_pt else NA, "AC": res["dairy"],
         })
     for r in out:  # the formula columns, as Python computes them
@@ -183,8 +202,8 @@ def list_sheet(ws, rows, col: str, first: int, donor: int, old_last: int, head: 
 
 
 # ------------------------------------------------------------ build
-def build(cat: dict) -> tuple[list[dict], dict]:
-    rows = rows_of(cat)
+def build(cat: dict, variant: str, xlsx: Path) -> tuple[list[dict], dict]:
+    rows = rows_of(cat, variant)
     n = len(rows)
     last = n + 1
     wb = load_workbook(TEMPLATE)
@@ -219,10 +238,10 @@ def build(cat: dict) -> tuple[list[dict], dict]:
 
     # ---- Welcome
     we = wb["Welcome"]
-    we["C1"] = "PROTEIN RATIO\nHarbour Market catalogue · demo"
-    we["A5"] = "  DEMO · FICTITIOUS RETAILER AND VOLUMES"
-    we["A6"] = (f"{n} real products from Open Food Facts (ODbL), with their real barcodes, ingredients and nutrition values. "
-                "Harbour Market, its departments and its volumes are invented.")
+    we["C1"] = "PROTEIN RATIO\nHarbour Market catalogue"
+    we["A5"] = "  HARBOUR MARKET · CATALOGUE 2026"
+    we["A6"] = (f"{n} products from your catalogue file, each classified for WWF and for the Protein Tracker. Protein contents: "
+                "your declared values, then the Altera reference database, Open Food Facts (ODbL), NEVO and CIQUAL.")
     we["A12"] = "Your volumes"
     we["B12"] = "Units sold over twelve months, from your file: type others over them and every tab recalculates."
     we.row_dimensions[8].height = 28  # room for the second line of "What this workbook contains"
@@ -233,7 +252,7 @@ def build(cat: dict) -> tuple[list[dict], dict]:
     we["B14"].number_format = "General"
     we["C14"] = ("Measured on your own catalogue, one rate per field, on a control sample sealed before review:\n"
                  "• 500 products drawn at random\n• the 500 heaviest products in tonnes of protein\n"
-                 "• the 3 best sellers of every category\nReviewed by hand, row by row. No figure on this demo catalogue.")
+                 "• the 3 best sellers of every category\nReviewed by hand, row by row.")
     for r in range(14, 19):
         we.row_dimensions[r].height = 17
     we["B22"] = f"the WWF sub-groups and the {len({r['E'] for r in rows})} retailer categories"
@@ -261,7 +280,7 @@ def build(cat: dict) -> tuple[list[dict], dict]:
     # ---- WWF
     ww = wb["WWF"]
     ww["A1"] = "  WWF PLANET-BASED DIETS · REPORT IN APPENDIX D FORMAT"
-    ww["B4"] = f"Harbour Market catalogue (demo), {n} products, volumes entered on the Welcome tab"
+    ww["B4"] = f"Harbour Market catalogue, {n} products, volumes entered on the Welcome tab"
     ww["B5"] = "Step 1 · product level"
 
     # ---- By category (the WWF sub-groups stay; the retailer categories are ours), By department, By brand
@@ -320,7 +339,7 @@ def build(cat: dict) -> tuple[list[dict], dict]:
                 if isinstance(c.value, str):
                     c.value = nodash(c.value)
     wb.active = 0
-    wb.save(XLSX)
+    wb.save(xlsx)
     return rows, {"plant": [r["key"] for r in plant], "animal": [r["key"] for r in animal]}
 
 
@@ -353,25 +372,25 @@ def expected(rows: list[dict]) -> dict[tuple[str, str], float]:
     return e
 
 
-def write_csv(rows: list[dict]) -> None:
+def write_csv(rows: list[dict], csv_path: Path) -> None:
     wb = load_workbook(TEMPLATE, read_only=True)
     header = [c.value for c in next(wb["Data"].iter_rows(min_row=1, max_row=1))]
-    with CSV.open("w", newline="", encoding="utf-8") as fh:
+    with csv_path.open("w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh)
         w.writerow(header)
         for r in rows:
             w.writerow(["" if r[c] is None else (round(r[c], 4) if isinstance(r[c], float) else r[c]) for c in cols("A", "AD")])
 
 
-def verify(rows: list[dict]) -> tuple[list[str], int]:
+def verify(rows: list[dict], xlsx: Path) -> tuple[list[str], int]:
     soffice = shutil.which("soffice")
     if not soffice:
         return ["LibreOffice is needed to verify the workbook"], 0
     with tempfile.TemporaryDirectory() as tmp:
-        subprocess.run([soffice, "--headless", "--calc", "--convert-to", "xlsx", "--outdir", tmp, str(XLSX)],
+        subprocess.run([soffice, "--headless", "--calc", "--convert-to", "xlsx", "--outdir", tmp, str(xlsx)],
                        check=True, capture_output=True, timeout=300)
-        got = load_workbook(Path(tmp) / XLSX.name, data_only=True)
-    written = load_workbook(XLSX)
+        got = load_workbook(Path(tmp) / xlsx.name, data_only=True)
+    written = load_workbook(xlsx)
     n_formulas = sum(1 for s in written.worksheets for row in s.iter_rows() for c in row
                      if isinstance(c.value, str) and c.value.startswith("="))
     errors = []
@@ -401,19 +420,27 @@ def verify(rows: list[dict]) -> tuple[list[str], int]:
 
 def main() -> int:
     cat = json.loads(SRC.read_text())
-    OUT.mkdir(parents=True, exist_ok=True)
-    rows, _ = build(cat)
-    write_csv(rows)
-    errors, n_formulas = verify(rows)
-    e = expected(rows)
-    print(f"  WWF FG1 {e[('WWF', 'C43')]:.1%} · FG2 {e[('WWF', 'C46')]:.1%} · whole diet {e[('WWF', 'C49')]:.1%} · "
-          f"Protein Tracker {e[('Protein Tracker', 'C3')]:.1%}")
-    print(f"  -> {XLSX.relative_to(ROOT)} ({XLSX.stat().st_size // 1024} KB, {n_formulas} formulas), "
-          f"{CSV.relative_to(ROOT)} ({CSV.stat().st_size // 1024} KB)")
-    if errors:
-        print("REFUSED:", *errors[:30], sep="\n  ")
-        return 1
-    return 0
+    for old in list(OUT.glob("*.xlsx")) + list(OUT.glob("*.csv")):
+        old.unlink()                                           # files of an earlier layout
+    failed, n_formulas, ratios = False, 0, {}
+    for variant in VARIANTS:
+        out = OUT / variant
+        out.mkdir(parents=True, exist_ok=True)
+        xlsx, csv_path = out / XLSX_NAME, out / CSV_NAME
+        rows, _ = build(cat, variant, xlsx)
+        write_csv(rows, csv_path)
+        errors, n_formulas = verify(rows, xlsx)
+        e = expected(rows)
+        ratios[variant] = {"fg1": e[("WWF", "C43")], "fg2": e[("WWF", "C46")], "diet": e[("WWF", "C49")], "pt": e[("Protein Tracker", "C3")]}
+        print(f"  {variant}: WWF FG1 {e[('WWF', 'C43')]:.1%} · FG2 {e[('WWF', 'C46')]:.1%} · whole diet {e[('WWF', 'C49')]:.1%} · "
+              f"Protein Tracker {e[('Protein Tracker', 'C3')]:.1%} · {xlsx.stat().st_size // 1024} KB")
+        if errors:
+            failed = True
+            print("REFUSED:", *errors[:30], sep="\n  ")
+    # the app's log announces the formula count; the PDF builder checks its ratios against these
+    (ROOT / "src" / "data" / "deliverables.json").write_text(json.dumps({"formulas": n_formulas, "ratios": ratios}, indent=1) + "\n")
+    print(f"  -> public/downloads/<variant>/{XLSX_NAME} and {CSV_NAME}, {len(VARIANTS)} variants, {n_formulas} formulas each")
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":

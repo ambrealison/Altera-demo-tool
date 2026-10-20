@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
-import type { AnomalyId, Lang, Product } from "./types";
+import type { Decisions, Lang } from "./types";
 import { T, dept } from "./i18n";
-import { ANOMALIES, PRODUCTS, fmtInt, fmtNum, fmtPct, ingredients, productName, tillLabel } from "./data";
+import { ANOMALIES, PRODUCTS, fmtInt, fmtNum, fmtPct, ingredients, productName, productsFor, tillLabel } from "./data";
 import { wwfText } from "./engine";
 
 export type View = "raw" | "checks" | "classify" | "match";
@@ -11,33 +11,37 @@ interface Props {
   lang: Lang;
   marks: Set<string>;
   busy: boolean;
-  accepted: Set<AnomalyId>;
+  decisions: Decisions;
 }
 
 const anomalyOf = (row: number) => ANOMALIES.find((a) => a.row === row);
 const Wait = ({ busy }: { busy: boolean }) => (busy ? <span className="dots"><i /><i /><i /></span> : <span>·</span>);
+const short = (s: string, n = 26) => (s.length > n ? `${s.slice(0, n).trimEnd()}…` : s);
 
 /** The catalogue, row by row, showing what the engine has found so far. */
-export function RowsTable({ view, lang, marks, busy, accepted }: Props) {
+export function RowsTable({ view, lang, marks, busy, decisions }: Props) {
   const L = T[lang];
   const C = L.cols;
   const empty = <td className="empty">{L.emptyCell}</td>;
   const v = (s: string, render?: (s: string) => ReactNode) => (s === "" ? empty : <td>{render ? render(s) : s}</td>);
   const scoped = marks.has("scope");
   const dec = (x: string) => (lang === "fr" ? x.replace(".", ",") : x);
+  const products = productsFor(decisions);
+  const done = <span className="chip ok">✓</span>;
+  const keptChip = <span className="chip warn">{lang === "fr" ? "conservé" : "kept"}</span>;
 
   const head: Record<View, string[]> = {
-    raw: [C.ean, C.product, C.brand, C.dept, C.weight, "kcal", C.prot, C.units, lang === "fr" ? "Ingrédients" : "Ingredients"],
-    checks: [C.ean, C.product, C.dept, C.weight, C.units, ""],
+    raw: [C.ean, C.product, C.brand, C.dept, C.weight, "kcal", C.prot, C.units, C.ingr],
+    checks: [C.ean, C.product, C.ingr, C.weight, C.units, ""],
     classify: [C.product, C.route, C.wwf, C.pt, C.conf],
     match: [C.product, C.prot, C.psrc, C.split, C.level],
   };
 
-  const row = (p: Product & { key: string }, i: number) => {
-    const r = p.raw, s = p.res;
+  const row = (p: (typeof PRODUCTS)[number], i: number) => {
+    const r = p.raw, s = products[i].res;
     const a = anomalyOf(i);
-    const fixed = a ? accepted.has(a.id) : false;
-    const flagged = a && !fixed && marks.has(`anom:${a.id}`) && ((view === "checks" && a.id !== "protein") || (view === "match" && a.id === "protein"));
+    const d = a ? decisions[a.id] : undefined;
+    const flagged = a && !d && marks.has(`anom:${a.id}`) && ((view === "checks" && a.id !== "protein") || (view === "match" && a.id === "protein"));
     const out = scoped && !s.inPt;
     const cls = [out ? "out" : "", flagged ? "flag" : ""].join(" ");
     const name = <td><span className="pn" title={productName(p, lang)}>{tillLabel(p, lang)}</span></td>;
@@ -57,24 +61,31 @@ export function RowsTable({ view, lang, marks, busy, accepted }: Props) {
     );
 
     if (view === "checks") {
-      const ean = a?.id === "ean" ? (fixed ? <span className="mono">{a.to} <span className="chip ok">✓</span></span> : <span className="mono" style={{ color: marks.has("anom:ean") ? "var(--red)" : undefined }}>{r.ean}</span>) : <span className="mono">{r.ean}</span>;
+      const received = ingredients(p, lang);
+      const ingr = a?.id === "ingredients"
+        ? (d === "accepted" ? <span>{short((lang === "fr" ? a.toFr : a.to) ?? "")} {done}</span>
+          : d === "declined" ? <span>{short(received)} {keptChip}</span>
+          : <span style={{ color: marks.has("anom:ingredients") ? "var(--red)" : undefined }}>{short(received)}</span>)
+        : received ? <span className="muted">{short(received)}</span> : <span className="chip ghosted">{L.emptyCell}</span>;
       const weight = a?.id === "weight"
-        ? (fixed ? <span>{fmtNum(Number(a.to), lang, 3)} kg <span className="chip ok">✓</span></span> : marks.has("anom:weight") ? <span className="chip warn">{L.emptyCell}</span> : <span className="chip ghosted">{L.emptyCell}</span>)
-        : `${fmtNum(Number(r.net_weight_kg), lang, 3)} kg`;
+        ? (d === "accepted" ? <span>{fmtNum(Number(a.to), lang, 3)} kg {done}</span>
+          : d === "declined" ? <span className="chip warn">{L.emptyCell} · {lang === "fr" ? "conservé" : "kept"}</span>
+          : marks.has("anom:weight") ? <span className="chip warn">{L.emptyCell}</span> : <span className="chip ghosted">{L.emptyCell}</span>)
+        : r.net_weight_kg ? `${fmtNum(Number(r.net_weight_kg), lang, 3)} kg` : <span className="chip ghosted">{L.emptyCell}</span>;
       const status = !scoped ? null
         : !s.inPt ? <span className="chip">{L.outScope} · {lang === "fr" ? "non-alimentaire" : "non-food"}</span>
         : !s.inWwf ? <span className="chip warn">{L.excludedA} · WWF</span>
-        : <span className="chip ok">✓</span>;
+        : done;
       return (
         <tr key={i} className={cls}>
-          <td>{ean}</td>{name}<td>{dept(r.department, lang)}</td><td>{weight}</td>
+          <td className="mono">{r.ean}</td>{name}<td className="ingr">{ingr}</td><td>{weight}</td>
           <td className="num">{fmtInt(Number(r.units_sold_12m), lang)}</td><td>{status}</td>
         </tr>
       );
     }
 
     if (view === "classify") {
-      const done = marks.has(`cls:${i}`);
+      const shown = marks.has(`cls:${i}`);
       if (!s.inPt) return (
         <tr key={i} className="out">{name}<td colSpan={4}>{L.outScope} · {lang === "fr" ? "non-alimentaire" : "non-food"}</td></tr>
       );
@@ -82,9 +93,9 @@ export function RowsTable({ view, lang, marks, busy, accepted }: Props) {
         : s.wwf.struct === "composite" ? <span className="chip composite">{L.composite} · {L.cats[s.wwf.cat!]}</span>
         : <span className={`chip ${s.wwf.origin}`}>{wwfText(p, lang, false)} · {L.origin[s.wwf.origin!]}</span>;
       return (
-        <tr key={i} className={done ? "fresh" : ""}>
+        <tr key={i} className={shown ? "fresh" : ""}>
           {name}
-          {done ? <>
+          {shown ? <>
             <td><span className={`chip ${s.route === "model" ? "ok" : "ink"}`}>{L.routes[s.route]}</span></td>
             <td>{wwf}</td>
             <td><span className={`chip ${s.pt}`}><i />{L.classes[s.pt!]}</span></td>
@@ -97,10 +108,10 @@ export function RowsTable({ view, lang, marks, busy, accepted }: Props) {
     // match: protein content and split
     if (!s.inPt) return <tr key={i} className="out">{name}<td colSpan={4}>{L.outScope} · {lang === "fr" ? "non-alimentaire" : "non-food"}</td></tr>;
     const protShown = a?.id === "protein"
-      ? (fixed ? <span><b>{fmtNum(s.prot, lang)}</b> g <span className="chip ok">✓</span></span>
+      ? (d ? <span><b>{fmtNum(s.prot, lang)}</b> g {d === "accepted" ? done : keptChip}</span>
         : marks.has("anom:protein") ? <span><s style={{ color: "var(--red)" }}>{a.from}</s> g</span> : null)
       : marks.has(`prot:${i}`) ? <span><b>{fmtNum(s.prot, lang)}</b> g</span> : null;
-    const srcShown = (a?.id === "protein" ? fixed : marks.has(`prot:${i}`)) ? <span className={`chip ${s.protSrc === "declared" ? "" : "ok"}`}>{L.sources[s.protSrc]}</span> : null;
+    const srcShown = (a?.id === "protein" ? !!d : marks.has(`prot:${i}`)) ? <span className={`chip ${s.protSrc === "declared" ? "" : "ok"}`}>{L.sources[s.protSrc]}</span> : null;
     const split = marks.has(`split:${i}`);
     return (
       <tr key={i} className={cls}>

@@ -11,9 +11,16 @@ Live: https://ambrealison.github.io/Altera-demo-tool/ (`?lang=fr` opens it in Fr
 Nothing calls a remote service. Every result the engine shows was prepared in advance from
 the catalogue (`src/data/catalogue.json`); each button plays a timed script (`src/engine.ts`)
 that paces those results into the table and prints the engine log a real run would print.
-Steps take 3 to 10 seconds; the deliverables take about 20. Three anomalies are planted in the file (a mistyped barcode, a
-missing net weight, a per-pack protein value); the presenter accepts each proposed correction
-before the pipeline moves on.
+Steps take 3 to 10 seconds; the deliverables take about 20. The interface shows no demo
+marker: it reads as the real tool.
+
+Three anomalies are planted in the file: an ingredient list that belongs to another product
+(the barcode is trusted, the list comes back by barcode), a missing net weight (read from the
+till label) and a per-pack protein value. The presenter accepts or declines each proposed
+correction. Declining keeps the value as received, and every figure that follows changes with
+it: tables, ratios, quality checks and deliverables. The deliverables were built for the eight
+combinations of decisions, in `public/downloads/<variant>/`, where the variant is one letter per
+anomaly (`a` accepted, `d` declined) in the order ingredients, weight, protein.
 
 The tool accepts only the two demo files, the same 30 rows in each:
 `public/demo/harbour_market_catalogue.csv` (English headers, commas) and
@@ -26,6 +33,9 @@ interface language.
 - **Products**: 30 real products with their real barcodes and nutrition values, from
   Open Food Facts (ODbL), collected once into `scripts/off_snapshot.json`. Labels, names and
   ingredient lists exist in English and French; each interface language shows its own.
+- **Terms**: WWF food groups and sub-groups, food sources and Protein Tracker groups follow
+  the Altera glossary (Food Group 1: Protein-Rich Foods, Tofu, tempeh & seitan, Animal-plant-based
+  composite, and so on); WWF exclusions are named as the exclusion list.
 - **Retailer**: Harbour Market is fictitious, and so are its departments and volumes.
 
 ## Commands
@@ -34,16 +44,16 @@ interface language.
 npm install
 npm run dev            # http://localhost:5173
 npm run build          # type-check and build to dist/
-npm run deliverables   # rebuild the workbook, the CSV and the four PDFs
+npm run deliverables   # rebuild the workbook, the CSV and the four PDFs, for all eight variants
 ```
 
-`npm run deliverables` writes to `public/downloads/`:
+`npm run deliverables` writes to `public/downloads/<variant>/`:
 
 | File | What it is |
 | --- | --- |
-| `HarbourMarket_Protein_Ratio_DEMO.xlsx` | Altera's results file template (`scripts/assets/workbook_template.xlsx`: Welcome, Protein Tracker, WWF, By category, By department, By brand, By product, Data) filled with the 30 products. One input column, the volumes on Welcome. LibreOffice recalculates it; no error cell is allowed and the ratios are compared with Python. |
-| `HarbourMarket_products_DEMO.csv` | Line-level file: the Data tab's 30 columns, values computed. |
-| `HarbourMarket_Insights_Report_{EN,FR}.pdf` | Five 16:9 pages: scope, WWF, Protein Tracker, levers. |
+| `HarbourMarket_Protein_Ratio.xlsx` | Altera's results file template (`scripts/assets/workbook_template.xlsx`: Welcome, Protein Tracker, WWF, By category, By department, By brand, By product, Data) filled with the 30 products. One input column, the volumes on Welcome. LibreOffice recalculates it; no error cell is allowed and the ratios are compared with Python. |
+| `HarbourMarket_products.csv` | Line-level file: the Data tab's 30 columns, values computed. |
+| `HarbourMarket_Insights_Report_{EN,FR}.pdf` | Five 16:9 pages: scope, WWF, Protein Tracker groups and sub-groups, levers. Its ratios are checked against the workbook's. |
 | `HarbourMarket_Scope_Statement_{EN,FR}.pdf` | One A4 page: scope covered, product-level approach, data used, volume assumptions. |
 
 The workbook needs `python3` with `openpyxl` and LibreOffice (`soffice`); the PDFs need a
