@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { AnomalyId, Decision, Decisions, Lang } from "./types";
 import { STEP_IDS, T, fill, type StepId } from "./i18n";
 import { ANOMALIES, ANOMALY_ORDER, BOOKING_URL, COLUMN_NAMES, DEMO_FILES, IN_PT, N, PHD, PRODUCTS, PT_CLASSES, PT_SUBS, FOOD_GROUPS, delimiterOf, downloads, fmtNum, fmtPct, isDemoFile, productsFor, resultsFor, tillLabel } from "./data";
-import { useRunner, type Line } from "./runner";
+import { useRunner } from "./runner";
 import { CHECK_COUNT, CROSS, DELIVER_TOTAL, FILE_WINDOWS, FILL, checksScript, classifyScript, deliverScript, importScript, matchScript, qualityScript, ratiosScript, type Script } from "./engine";
 import { RowsTable } from "./Table";
 
@@ -156,32 +156,10 @@ export default function App() {
             {view === "deliver" && <DeliverPanel lang={lang} st={st} marks={run.marks} progress={run.progress} decisions={decisions} />}
           </main>
 
-          <LogPanel lang={lang} lines={run.lines} busy={run.busy} />
         </div>
       </div>
       <div className="narrow"><div><b>{L.narrow[0]}</b>{L.narrow[1]}</div></div>
     </>
-  );
-}
-
-// ------------------------------------------------------------ engine log
-function LogPanel({ lang, lines, busy }: { lang: Lang; lines: Line[]; busy: boolean }) {
-  const L = T[lang];
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => { ref.current?.scrollTo({ top: ref.current.scrollHeight, behavior: "smooth" }); }, [lines.length]);
-  return (
-    <aside className="log" aria-live="polite">
-      <div className="log-h"><b>{L.log}</b><span className={busy ? "live" : ""}><i />{busy ? L.live : L.idle}</span></div>
-      <div className="log-b" ref={ref}>
-        {lines.length === 0 && <div className="log-empty">{L.logEmpty}</div>}
-        {lines.map((l) => (
-          <div key={l.id} className={`ll ${l.warn ? "warnline" : ""}`}>
-            <span className="ts">{l.ts}</span>
-            <span><span className={`tg t-${l.tag}`}>[{l.tag}]</span>{l.text}</span>
-          </div>
-        ))}
-      </div>
-    </aside>
   );
 }
 

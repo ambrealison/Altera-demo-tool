@@ -10,7 +10,7 @@ Live: https://ambrealison.github.io/Altera-demo-tool/ (`?lang=fr` opens it in Fr
 
 Nothing calls a remote service. Every result the engine shows was prepared in advance from
 the catalogue (`src/data/catalogue.json`); each button plays a timed script (`src/engine.ts`)
-that paces those results into the table and prints the engine log a real run would print.
+that paces those results into the screen, step by step.
 Steps take 3 to 10 seconds; the deliverables take about 20. The interface shows no demo
 marker: it reads as the real tool.
 
